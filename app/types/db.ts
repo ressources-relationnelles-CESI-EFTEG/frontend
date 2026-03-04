@@ -16,6 +16,10 @@ export interface User {
   nom: string | null;
   prenom: string | null;
   email: string;
+  telephone: string | null;
+  description: string | null;
+  phraseAccroche: string | null;
+  region: string | null;
   role: UserRole;
   statut: UserStatut;
   dateCreation: string;

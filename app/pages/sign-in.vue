@@ -2,13 +2,12 @@
 import { FetchError } from 'ofetch';
 
 const { signIn } = useApi();
+const auth = useAuth();
 
 const email = ref('');
 const password = ref('');
 const loading = ref(false);
 const errorMessage = ref('');
-const accessToken = ref('');
-const signedInUser = ref<{ prenom: string | null; nom: string | null; email: string } | null>(null);
 
 async function onSubmit() {
   errorMessage.value = '';
@@ -20,12 +19,8 @@ async function onSubmit() {
       password: password.value,
     });
 
-    accessToken.value = response.data.accessToken;
-    signedInUser.value = {
-      prenom: response.data.user.prenom,
-      nom: response.data.user.nom,
-      email: response.data.user.email,
-    };
+    auth.login(response.data.accessToken, response.data.user);
+    await navigateTo('/profile');
   } catch (error: unknown) {
     if (error instanceof FetchError && error.status === 401) {
       errorMessage.value = 'Identifiants invalides.';
@@ -36,8 +31,6 @@ async function onSubmit() {
     }
 
     console.error('Sign-in failed:', error);
-    accessToken.value = '';
-    signedInUser.value = null;
   } finally {
     loading.value = false;
   }
@@ -79,11 +72,5 @@ async function onSubmit() {
     </form>
 
     <p v-if="errorMessage">{{ errorMessage }}</p>
-
-    <section v-if="signedInUser">
-      <h2>Connecté</h2>
-      <p>{{ signedInUser.prenom }} {{ signedInUser.nom }} ({{ signedInUser.email }})</p>
-      <p>Token: {{ accessToken }}</p>
-    </section>
   </main>
 </template>
