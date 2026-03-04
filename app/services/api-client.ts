@@ -15,11 +15,23 @@ export async function apiRequest<TResponse, TBody extends RequestBody = RequestB
   const config = useRuntimeConfig();
   const baseURL = config.public.apiBase;
 
+  const headers: Record<string, string> = {};
+
+  if (import.meta.client) {
+    const token = localStorage.getItem('auth-token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
   return $fetch<TResponse>(path, {
     baseURL,
     method: options.method ?? 'GET',
     body: options.body,
     query: options.query,
-    headers: options.headers,
+    headers: {
+      ...headers,
+      ...options.headers,
+    },
   });
 }
