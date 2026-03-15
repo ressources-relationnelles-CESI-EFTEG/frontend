@@ -20,6 +20,54 @@ yarn install
 bun install
 ```
 
+## DSFR Installation
+
+Install the official French government Design System (DSFR):
+
+```bash
+# npm
+npm install @gouvfr/dsfr
+
+# pnpm
+pnpm add @gouvfr/dsfr
+
+# yarn
+yarn add @gouvfr/dsfr
+
+# bun
+bun add @gouvfr/dsfr
+```
+
+Copy DSFR assets to the public folder:
+
+```bash
+# npm
+npx cpy "node_modules/@gouvfr/dsfr/dist/**/*" public/dsfr
+
+# pnpm
+pnpm dlx cpy-cli "node_modules/@gouvfr/dsfr/dist/**/*" public/dsfr
+
+# yarn
+yarn dlx cpy-cli "node_modules/@gouvfr/dsfr/dist/**/*" public/dsfr
+```
+
+Make sure the following files are loaded in `nuxt.config.ts`:
+
+```ts
+app: {
+  head: {
+    link: [
+      { rel: 'stylesheet', href: '/dsfr/dsfr/dsfr.min.css' },
+      { rel: 'stylesheet', href: '/dsfr/utility/utility.min.css' },
+      { rel: 'stylesheet', href: '/dsfr/utility/icons/icons.min.css' }
+    ],
+    script: [
+      { src: '/dsfr/dsfr/dsfr.module.min.js', type: 'module' }
+    ]
+  }
+}
+```
+
 ## Development Server
 
 Start the development server on `http://localhost:3001`:

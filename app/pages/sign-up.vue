@@ -2,6 +2,7 @@
 import { FetchError } from 'ofetch';
 
 const { signUp } = useApi();
+const auth = useAuth();
 
 const prenom = ref('');
 const nom = ref('');
@@ -10,12 +11,6 @@ const password = ref('');
 const repeatPassword = ref('');
 const loading = ref(false);
 const errorMessage = ref('');
-const accessToken = ref('');
-const signedUpUser = ref<{
-  prenom: string | null;
-  nom: string | null;
-  email: string;
-} | null>(null);
 
 async function onSubmit() {
   errorMessage.value = '';
@@ -30,12 +25,8 @@ async function onSubmit() {
       repeatPassword: repeatPassword.value,
     });
 
-    accessToken.value = response.data.accessToken;
-    signedUpUser.value = {
-      prenom: response.data.user.prenom,
-      nom: response.data.user.nom,
-      email: response.data.user.email,
-    };
+    auth.login(response.data.accessToken, response.data.user);
+    await navigateTo('/profile');
   } catch (error: unknown) {
     if (error instanceof FetchError && error.status === 400) {
       const apiMessage = Array.isArray(error.data?.message)
@@ -50,12 +41,10 @@ async function onSubmit() {
     } else if (error instanceof FetchError) {
       errorMessage.value = `Erreur API (${error.status ?? 'unknown'}). Vérifie que le backend tourne sur ${useRuntimeConfig().public.apiBase}.`;
     } else {
-      errorMessage.value = 'Erreur inconnue pendant l’inscription.';
+      errorMessage.value = "Erreur inconnue pendant l'inscription.";
     }
 
     console.error('Sign-up failed:', error);
-    accessToken.value = '';
-    signedUpUser.value = null;
   } finally {
     loading.value = false;
   }
@@ -128,16 +117,10 @@ async function onSubmit() {
       </div>
 
       <button type="submit" :disabled="loading">
-        {{ loading ? 'Création...' : 'S\'inscrire' }}
+        {{ loading ? 'Création...' : "S'inscrire" }}
       </button>
     </form>
 
     <p v-if="errorMessage">{{ errorMessage }}</p>
-
-    <section v-if="signedUpUser">
-      <h2>Inscription réussie</h2>
-      <p>{{ signedUpUser.prenom }} {{ signedUpUser.nom }} ({{ signedUpUser.email }})</p>
-      <p>Token: {{ accessToken }}</p>
-    </section>
   </main>
 </template>
