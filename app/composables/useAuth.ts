@@ -1,45 +1,54 @@
-import type { User } from '~/types/db';
-
 export function useAuth() {
-  const user = useState<User | null>('auth-user', () => null);
-  const token = useState<string | null>('auth-token', () => null);
+  const authToken = useCookie<string | null>('auth_token', {
+    sameSite: 'lax',
+    secure: false,
+  })
 
-  const isLoggedIn = computed(() => !!token.value);
+  const refreshToken = useCookie<string | null>('refresh_token', {
+    sameSite: 'lax',
+    secure: false,
+  })
 
-  function login(newToken: string, newUser: User) {
-    token.value = newToken;
-    user.value = newUser;
-    if (import.meta.client) {
-      localStorage.setItem('auth-token', newToken);
-      localStorage.setItem('auth-user', JSON.stringify(newUser));
-    }
+  const userCookie = useCookie<any | null>('auth_user', {
+    sameSite: 'lax',
+    secure: false,
+    default: () => null,
+  })
+
+  const user = useState<any | null>('auth_user', () => userCookie.value ?? null)
+
+  if (!user.value && userCookie.value) {
+    user.value = userCookie.value
+  }
+
+  const isLoggedIn = computed(() => !!authToken.value)
+
+  function login(payload: {
+    accessToken: string
+    refreshToken?: string | null
+    user?: any | null
+  }) {
+    authToken.value = payload.accessToken
+    refreshToken.value = payload.refreshToken ?? null
+    user.value = payload.user ?? null
+    userCookie.value = payload.user ?? null
   }
 
   function logout() {
-    token.value = null;
-    user.value = null;
-    if (import.meta.client) {
-      localStorage.removeItem('auth-token');
-      localStorage.removeItem('auth-user');
-    }
+    authToken.value = null
+    refreshToken.value = null
+    user.value = null
+    userCookie.value = null
+
+    return navigateTo('/connexion')
   }
 
-  function restoreSession() {
-    if (!import.meta.client) return;
-    if (token.value) return;
-
-    const savedToken = localStorage.getItem('auth-token');
-    const savedUser = localStorage.getItem('auth-user');
-
-    if (savedToken && savedUser) {
-      token.value = savedToken;
-      try {
-        user.value = JSON.parse(savedUser);
-      } catch {
-        logout();
-      }
-    }
+  return {
+    authToken,
+    refreshToken,
+    user,
+    isLoggedIn,
+    login,
+    logout,
   }
-
-  return { user, token, isLoggedIn, login, logout, restoreSession };
 }
