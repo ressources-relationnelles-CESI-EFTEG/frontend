@@ -1,5 +1,13 @@
 <script setup lang="ts">
-const { isLoggedIn, logout } = useAuth()
+const { isLoggedIn, logout, user } = useAuth()
+
+const normalizedRole = computed(() => {
+  return String(user.value?.role ?? '').toLowerCase().trim()
+})
+
+const canAccessAdmin = computed(() => {
+  return normalizedRole.value === 'administrateur' || normalizedRole.value === 'super_admin'
+})
 </script>
 
 <template>
@@ -38,30 +46,41 @@ const { isLoggedIn, logout } = useAuth()
           </div>
 
           <div class="fr-header__tools rr-header-tools">
-            <div class="fr-btns-group fr-btns-group--inline fr-btns-group--icon-left rr-auth-buttons">
-              <template v-if="isLoggedIn">
-                <NuxtLink class="fr-btn fr-btn--secondary fr-icon-account-line" to="/mon-compte">
-                  Mon compte
-                </NuxtLink>
+            <div
+              v-if="!isLoggedIn"
+              class="fr-btns-group fr-btns-group--inline fr-btns-group--icon-left rr-auth-buttons"
+            >
+              <NuxtLink class="fr-btn fr-btn--secondary fr-icon-lock-line" to="/connexion">
+                Connexion
+              </NuxtLink>
+              <NuxtLink class="fr-btn fr-icon-account-line" to="/inscription">
+                Inscription
+              </NuxtLink>
+            </div>
 
-                <button
-                  type="button"
-                  class="fr-btn fr-icon-lock-line"
-                  @click="logout"
-                >
-                  Déconnexion
-                </button>
-              </template>
+            <div
+              v-else
+              class="fr-btns-group fr-btns-group--inline fr-btns-group--icon-left rr-auth-buttons"
+            >
+              <NuxtLink
+                v-if="canAccessAdmin"
+                class="fr-btn fr-btn--secondary fr-icon-settings-5-line"
+                to="/admin"
+              >
+                Admin
+              </NuxtLink>
 
-              <template v-else>
-                <NuxtLink class="fr-btn fr-btn--secondary fr-icon-lock-line" to="/connexion">
-                  Connexion
-                </NuxtLink>
+              <NuxtLink class="fr-btn fr-icon-account-line" to="/mon-compte">
+                Mon compte
+              </NuxtLink>
 
-                <NuxtLink class="fr-btn fr-icon-account-line" to="/inscription">
-                  Inscription
-                </NuxtLink>
-              </template>
+              <button
+                type="button"
+                class="fr-btn fr-btn--tertiary fr-icon-logout-box-r-line"
+                @click="logout"
+              >
+                Déconnexion
+              </button>
             </div>
           </div>
         </div>
@@ -79,27 +98,39 @@ const { isLoggedIn, logout } = useAuth()
             <li class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/accueil">Accueil</NuxtLink>
             </li>
-            <li class="fr-nav__item">
+
+            <li v-if="isLoggedIn" class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/tableau-de-bord">Tableau de bord</NuxtLink>
             </li>
-            <li class="fr-nav__item">
+
+            <li v-if="isLoggedIn" class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/mes-ressources">Mes ressources</NuxtLink>
             </li>
-            <li class="fr-nav__item">
+
+            <li v-if="isLoggedIn" class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/messagerie">Messagerie</NuxtLink>
             </li>
-            <li class="fr-nav__item">
+
+            <li v-if="isLoggedIn" class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/mon-compte">Mon compte</NuxtLink>
             </li>
-            <li class="fr-nav__item">
+
+            <li v-if="isLoggedIn" class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/ajouter-une-ressource">Ajouter une ressource</NuxtLink>
             </li>
+
+            <li v-if="isLoggedIn && canAccessAdmin" class="fr-nav__item">
+              <NuxtLink class="fr-nav__link" to="/admin">Administration</NuxtLink>
+            </li>
+
             <li class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/contact">Contactez-nous</NuxtLink>
             </li>
+
             <li class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/accessibilite">Accessibilité</NuxtLink>
             </li>
+
             <li class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/aide">Aide</NuxtLink>
             </li>
