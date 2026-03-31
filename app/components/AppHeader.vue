@@ -5,8 +5,12 @@ const normalizedRole = computed(() => {
   return String(user.value?.role ?? '').toLowerCase().trim()
 })
 
-const canAccessAdmin = computed(() => {
+const isAdmin = computed(() => {
   return normalizedRole.value === 'administrateur' || normalizedRole.value === 'super_admin'
+})
+
+const isSuperAdmin = computed(() => {
+  return normalizedRole.value === 'super_admin'
 })
 </script>
 
@@ -63,11 +67,19 @@ const canAccessAdmin = computed(() => {
               class="fr-btns-group fr-btns-group--inline fr-btns-group--icon-left rr-auth-buttons"
             >
               <NuxtLink
-                v-if="canAccessAdmin"
+                v-if="isAdmin"
                 class="fr-btn fr-btn--secondary fr-icon-settings-5-line"
                 to="/admin"
               >
                 Admin
+              </NuxtLink>
+
+              <NuxtLink
+                v-if="isSuperAdmin"
+                class="fr-btn fr-btn--secondary fr-icon-shield-line"
+                to="/super-admin"
+              >
+                Super admin
               </NuxtLink>
 
               <NuxtLink class="fr-btn fr-icon-account-line" to="/mon-compte">
@@ -119,8 +131,12 @@ const canAccessAdmin = computed(() => {
               <NuxtLink class="fr-nav__link" to="/ajouter-une-ressource">Ajouter une ressource</NuxtLink>
             </li>
 
-            <li v-if="isLoggedIn && canAccessAdmin" class="fr-nav__item">
+            <li v-if="isAdmin" class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/admin">Administration</NuxtLink>
+            </li>
+
+            <li v-if="isSuperAdmin" class="fr-nav__item">
+              <NuxtLink class="fr-nav__link" to="/super-admin">Super administration</NuxtLink>
             </li>
 
             <li class="fr-nav__item">
