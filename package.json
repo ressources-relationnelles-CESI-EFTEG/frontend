@@ -3,11 +3,12 @@
   "type": "module",
   "private": true,
   "scripts": {
-  "build": "nuxt build",
-  "dev": "nuxt dev",
-  "generate": "nuxt generate",
-  "preview": "nuxt preview",
-  "postinstall": "nuxt prepare && cpy \"node_modules/@gouvfr/dsfr/dist/**/*\" public/dsfr"
+    "dev": "nuxt dev",
+    "test:unit": "vitest",
+    "test:unit:run": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test": "npm run test:unit:run && npm run test:e2e"
   },
   "dependencies": {
     "@gouvfr/dsfr": "^1.14.4",
@@ -16,7 +17,13 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@nuxt/test-utils": "^4.0.2",
+    "@playwright/test": "^1.59.1",
     "@types/node": "^25.3.0",
-    "cpy-cli": "^7.0.0"
+    "@vue/test-utils": "^2.4.6",
+    "cpy-cli": "^7.0.0",
+    "happy-dom": "^20.8.9",
+    "vitest": "^4.1.4"
   }
 }

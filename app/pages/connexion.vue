@@ -1,4 +1,8 @@
 <script setup lang="ts">
+useHead({
+  title: 'Connexion',
+})
+
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
 const { login, isLoggedIn } = useAuth()
