@@ -5,7 +5,14 @@ definePageMeta({
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
-const { user, authToken } = useAuth()
+// Compatibilité : le composable peut exposer "authToken" ou "token" selon la version
+const _auth = useAuth() as any
+const user = _auth.user as Ref<any>
+const authToken = computed<string | null>(() =>
+  (_auth.authToken?.value ?? _auth.token?.value) ?? null,
+)
+// Récupère l'id quel que soit le nom du champ (id ou idUtilisateur)
+const userId = computed(() => (user.value as any)?.id ?? (user.value as any)?.idUtilisateur ?? null)
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,28 +100,28 @@ const seanceConfirmee = ref(false)
 // Chargement
 // ---------------------------------------------------------------------------
 async function fetchAll() {
-  if (!user.value?.id) return
+  if (!userId.value) return
 
   const headers = { Authorization: `Bearer ${authToken.value}` }
 
   await Promise.allSettled([
-    $fetch<Mentor>(`/mentors/mon-mentor/${user.value.id}`, { baseURL: apiBase, headers })
+    $fetch<Mentor>(`/mentors/mon-mentor/${userId.value}`, { baseURL: apiBase, headers })
       .then((d) => (mentor.value = d))
       .catch(() => {}),
 
-    $fetch<Progression>(`/progression/utilisateur/${user.value.id}`, { baseURL: apiBase, headers })
+    $fetch<Progression>(`/progression/utilisateur/${userId.value}`, { baseURL: apiBase, headers })
       .then((d) => (progression.value = d))
       .catch(() => {}),
 
-    $fetch<Ressource[]>(`/ressources/recommandees/${user.value.id}?limit=2`, { baseURL: apiBase, headers })
+    $fetch<Ressource[]>(`/ressources/recommandees/${userId.value}?limit=2`, { baseURL: apiBase, headers })
       .then((d) => (ressourcesRecommandees.value = d))
       .catch(() => {}),
 
-    $fetch<Seance>(`/seances/prochaine/${user.value.id}`, { baseURL: apiBase, headers })
+    $fetch<Seance>(`/seances/prochaine/${userId.value}`, { baseURL: apiBase, headers })
       .then((d) => (prochaineSeance.value = d))
       .catch(() => {}),
 
-    $fetch<MessageRecent[]>(`/conversations/messages-recents/${user.value.id}?limit=2`, { baseURL: apiBase, headers })
+    $fetch<MessageRecent[]>(`/conversations/messages-recents/${userId.value}?limit=2`, { baseURL: apiBase, headers })
       .then((d) => (messagesRecents.value = d))
       .catch(() => {}),
 
@@ -206,7 +213,7 @@ const derniereConnexion = computed(() => {
     <div class="fr-grid-row fr-grid-row--middle rr-dashboard-header fr-mb-5w">
       <div class="fr-col">
         <h1 class="fr-h3 fr-mb-0 rr-welcome-title">
-          Bienvenue, {{ user?.firstname }} {{ user?.lastname?.[0] }}.
+          Bienvenue, {{ user?.prenom ?? user?.prenom ?? user?.firstname }} {{ (user?.nom ?? user?.nom ?? user?.lastname)?.[0] }}.
         </h1>
         <p class="fr-text--sm rr-welcome-sub fr-mb-0">
           Dernière connexion : {{ derniereConnexion }}
@@ -886,6 +893,7 @@ const derniereConnexion = computed(() => {
   color: var(--text-mention-grey);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -989,6 +997,7 @@ const derniereConnexion = computed(() => {
   color: var(--text-label-grey);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

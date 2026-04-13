@@ -5,7 +5,14 @@ definePageMeta({
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
-const { user, authToken } = useAuth()
+// Compatibilité : le composable peut exposer "authToken" ou "token" selon la version
+const _auth = useAuth() as any
+const user = _auth.user as Ref<any>
+const authToken = computed<string | null>(() =>
+  (_auth.authToken?.value ?? _auth.token?.value) ?? null,
+)
+// Récupère l'id quel que soit le nom du champ (id ou idUtilisateur)
+const userId = computed(() => (user.value as any)?.id ?? (user.value as any)?.idUtilisateur ?? null)
 
 // ---------------------------------------------------------------------------
 // Types (issus du MCD)
@@ -121,6 +128,7 @@ async function fetchSignalements() {
 
 async function traiterSignalement(statut: 'traite' | 'ignore') {
   if (!signalementModal.value) return
+
   isTraitant.value = true
   try {
     await $fetch(`/signalements/${signalementModal.value.idSignalement}`, {
@@ -130,14 +138,15 @@ async function traiterSignalement(statut: 'traite' | 'ignore') {
       body: {
         statut,
         actionPrise: actionSignalement.value.trim() || undefined,
-        idModerateur: user.value?.id,
+        idModerateur: userId.value,
       },
     })
     const idx = signalements.value.findIndex((s) => s.idSignalement === signalementModal.value!.idSignalement)
-    if (idx !== -1) {
-      signalements.value[idx].statut = statut
-      signalements.value[idx].actionPrise = actionSignalement.value.trim()
-      signalements.value[idx].dateTraitement = new Date().toISOString()
+    const signal = idx !== -1 ? signalements.value[idx] : undefined
+    if (signal) {
+      signal.statut = statut
+      signal.actionPrise = actionSignalement.value.trim()
+      signal.dateTraitement = new Date().toISOString()
     }
     stats.value.signalementsEnAttente = signalements.value.filter((s) => s.statut === 'en_attente').length
     fermerModalSignalement()
@@ -208,7 +217,8 @@ async function changerStatutCommentaire(idCommentaire: number, statut: 'visible'
       body: { statut },
     })
     const idx = commentaires.value.findIndex((c) => c.idCommentaire === idCommentaire)
-    if (idx !== -1) commentaires.value[idx].statut = statut
+    const item = idx !== -1 ? commentaires.value[idx] : undefined
+    if (item) item.statut = statut
   } catch {
     //
   }
@@ -225,7 +235,7 @@ async function ajouterCommentaire() {
       method: 'POST',
       headers: { Authorization: `Bearer ${authToken.value}` },
       body: {
-        idUtilisateur: user.value?.id,
+        idUtilisateur: userId.value,
         idRessource: Number(idRessourceComment.value),
         contenu: nouveauCommentaire.value.trim(),
       },
@@ -293,9 +303,10 @@ async function changerStatutRessource(idRessource: number, statut: 'valide' | 'r
       },
     })
     const idx = ressources.value.findIndex((r) => r.idRessource === idRessource)
-    if (idx !== -1) {
-      ressources.value[idx].statut = statut
-      if (statut === 'rejetee') ressources.value[idx].motifRejet = motifRejet.value.trim()
+    const res = idx !== -1 ? ressources.value[idx] : undefined
+    if (res) {
+      res.statut = statut
+      if (statut === 'rejetee') res.motifRejet = motifRejet.value.trim()
     }
     stats.value.ressourcesEnAttente = ressources.value.filter((r) => r.statut === 'en_attente').length
     fermerModalRessource()
@@ -1513,6 +1524,7 @@ function labelTypeRessource(type: string) {
 .rr-resource-item__desc {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

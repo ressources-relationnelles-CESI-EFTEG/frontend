@@ -5,7 +5,16 @@ definePageMeta({
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
-const { user, authToken } = useAuth()
+
+// Compatibilité : le composable peut exposer 'authToken' ou 'token' selon la version
+const _auth = useAuth() as any
+const user = _auth.user as Ref<any>
+const authToken = computed<string | null>(() =>
+  (_auth.authToken?.value ?? _auth.token?.value) ?? null,
+)
+
+// Récupère l'id utilisateur quel que soit le nom du champ (id ou idUtilisateur)
+const userId = computed(() => user.value?.id ?? user.value?.idUtilisateur ?? null)
 
 // ---------------------------------------------------------------------------
 // Étapes du formulaire
@@ -31,7 +40,6 @@ const lienPartage = ref('')
 const idCategorie = ref('')
 const tagInput = ref('')
 const tags = ref<string[]>([])
-const sauvegarderComme = ref<'brouillon' | 'en_attente'>('brouillon')
 
 // ---------------------------------------------------------------------------
 // Options (issues du MCD)
@@ -175,7 +183,7 @@ const successMessage = ref('')
 async function onSubmit(statut: 'brouillon' | 'en_attente') {
   if (!validateEtape1()) { etapeActive.value = 1; return }
   if (!validateEtape2()) { etapeActive.value = 2; return }
-  if (!user.value?.id) return
+  if (!userId.value) return
 
   isSubmitting.value = true
   apiError.value = ''
@@ -187,7 +195,7 @@ async function onSubmit(statut: 'brouillon' | 'en_attente') {
       method: 'POST',
       headers: { Authorization: `Bearer ${authToken.value}` },
       body: {
-        idUtilisateur: user.value.id,
+        idUtilisateur: userId.value,
         titre: titre.value.trim(),
         description: description.value.trim() || undefined,
         contenu: contenu.value.trim(),
@@ -265,13 +273,13 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
         <!-- Stepper -->
         <div class="fr-stepper fr-mb-5w" aria-label="Étapes du formulaire">
           <h2 class="fr-stepper__title">
-            {{ ETAPES[etapeActive - 1].label }}
+            {{ ETAPES[etapeActive - 1]?.label ?? '' }}
             <span class="fr-stepper__state">Étape {{ etapeActive }} sur {{ ETAPES.length }}</span>
           </h2>
           <div class="fr-stepper__steps" :data-fr-current-step="etapeActive" :data-fr-steps="ETAPES.length"></div>
           <p class="fr-stepper__details">
             <span class="fr-text--bold">Étape suivante :</span>
-            {{ etapeActive < ETAPES.length ? ETAPES[etapeActive].label : 'Publication' }}
+            {{ etapeActive < ETAPES.length ? ETAPES[etapeActive]?.label : 'Publication' }}
           </p>
         </div>
 
