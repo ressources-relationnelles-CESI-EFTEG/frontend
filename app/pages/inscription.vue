@@ -1,4 +1,8 @@
 <script setup lang="ts">
+useHead({
+  title: 'Inscription',
+})
+
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
 const { login, isLoggedIn } = useAuth()
