@@ -24,14 +24,16 @@ export function useAuth() {
   const isLoggedIn = computed(() => !!authToken.value)
 
   function login(payload: {
-    accessToken: string
-    refreshToken?: string | null
-    user?: any | null
+  accessToken: string
+  refreshToken?: string | null
+  user?: any | null
   }) {
-    authToken.value = payload.accessToken
-    refreshToken.value = payload.refreshToken ?? null
-    user.value = payload.user ?? null
-    userCookie.value = payload.user ?? null
+  console.log('LOGIN USER PAYLOAD', payload.user)
+
+  authToken.value = payload.accessToken
+  refreshToken.value = payload.refreshToken ?? null
+  user.value = payload.user ?? null
+  userCookie.value = payload.user ?? null
   }
 
   function logout() {
