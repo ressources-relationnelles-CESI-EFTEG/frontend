@@ -152,7 +152,7 @@ function labelType(type: string): string {
 
 function iconType(type: string): string {
   const map: Record<string, string> = {
-    article: 'fr-icon-article-line', video: 'fr-icon-video-line',
+    article: 'fr-icon-article-line', video: 'fr-icon-film-line',
     audio: 'fr-icon-sound-line', pdf: 'fr-icon-file-pdf-line',
     exercice: 'fr-icon-body-line',
   }

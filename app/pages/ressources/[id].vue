@@ -65,7 +65,7 @@ function labelType(type: string) {
 function iconType(type: string) {
   const map: Record<string, string> = {
     ARTICLE: 'fr-icon-article-line',
-    VIDEO: 'fr-icon-video-line',
+    VIDEO: 'fr-icon-film-line',
     AUDIO: 'fr-icon-sound-line',
     EXERCICE: 'fr-icon-body-line',
     ACTIVITE: 'fr-icon-calendar-event-line',
