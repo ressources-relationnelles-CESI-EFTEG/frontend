@@ -5,7 +5,14 @@ definePageMeta({
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
-const { user, authToken } = useAuth()
+// Compatibilité : le composable peut exposer "authToken" ou "token" selon la version
+const _auth = useAuth() as any
+const user = _auth.user as Ref<any>
+const authToken = computed<string | null>(() =>
+  (_auth.authToken?.value ?? _auth.token?.value) ?? null,
+)
+// Récupère l'id quel que soit le nom du champ (id ou idUtilisateur)
+const userId = computed(() => (user.value as any)?.id ?? (user.value as any)?.idUtilisateur ?? null)
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,10 +58,10 @@ const messagesContainer = ref<HTMLElement | null>(null)
 // Chargement des conversations
 // ---------------------------------------------------------------------------
 async function fetchConversations() {
-  if (!user.value?.id) return
+  if (!userId.value) return
   isLoadingConversations.value = true
   try {
-    const data = await $fetch<Conversation[]>(`/conversations/utilisateur/${user.value.id}`, {
+    const data = await $fetch<Conversation[]>(`/conversations/utilisateur/${userId.value}`, {
       baseURL: apiBase,
       headers: { Authorization: `Bearer ${authToken.value}` },
     })
@@ -109,7 +116,7 @@ async function envoyerMessage() {
   isSending.value = true
   const messageOptimiste: Message = {
     idMessage: Date.now(),
-    idExpediteur: user.value?.id,
+    idExpediteur: userId.value as number,
     contenu: texte,
     dateEnvoi: new Date().toISOString(),
     lu: false,
@@ -125,7 +132,7 @@ async function envoyerMessage() {
       method: 'POST',
       headers: { Authorization: `Bearer ${authToken.value}` },
       body: {
-        idExpediteur: user.value?.id,
+        idExpediteur: userId.value as number,
         contenu: texte,
       },
     })
@@ -191,7 +198,7 @@ const messagesGroupes = computed(() => {
       groupes.push({ label, messages: [] })
       labelCourant = label
     }
-    groupes[groupes.length - 1].messages.push(msg)
+    groupes[groupes.length - 1]?.messages.push(msg)
   }
   return groupes
 })
@@ -232,7 +239,7 @@ function initiales(prenom: string, nom: string): string {
 }
 
 function estMien(msg: Message): boolean {
-  return msg.idExpediteur === user.value?.id
+  return msg.idExpediteur === userId.value
 }
 
 // ---------------------------------------------------------------------------
@@ -241,8 +248,9 @@ function estMien(msg: Message): boolean {
 onMounted(async () => {
   await fetchConversations()
   // Ouvrir la première conversation automatiquement si disponible
-  if (conversations.value.length > 0) {
-    await ouvrirConversation(conversations.value[0])
+  const premiere = conversations.value[0]
+  if (premiere) {
+    await ouvrirConversation(premiere)
   }
 })
 </script>

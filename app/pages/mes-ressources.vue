@@ -5,7 +5,14 @@ definePageMeta({
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
-const { user, authToken } = useAuth()
+// Compatibilité : le composable peut exposer "authToken" ou "token" selon la version
+const _auth = useAuth() as any
+const user = _auth.user as Ref<any>
+const authToken = computed<string | null>(() =>
+  (_auth.authToken?.value ?? _auth.token?.value) ?? null,
+)
+// Récupère l'id quel que soit le nom du champ (id ou idUtilisateur)
+const userId = computed(() => (user.value as any)?.id ?? (user.value as any)?.idUtilisateur ?? null)
 
 // --- État ---
 const isLoading = ref(true)
@@ -54,9 +61,9 @@ const statuts = [
 
 // --- Chargement ---
 async function fetchMesRessources() {
-  if (!user.value?.id) return
+  if (!userId.value) return
   try {
-    const data = await $fetch<Record<string, any>[]>(`/ressources/utilisateur/${user.value.id}`, {
+    const data = await $fetch<Record<string, any>[]>(`/ressources/utilisateur/${userId.value}`, {
       baseURL: apiBase,
       headers: { Authorization: `Bearer ${authToken.value}` },
     })
@@ -67,9 +74,9 @@ async function fetchMesRessources() {
 }
 
 async function fetchRessourcesPartagees() {
-  if (!user.value?.id) return
+  if (!userId.value) return
   try {
-    const data = await $fetch<Record<string, any>[]>(`/ressources/partagees/${user.value.id}`, {
+    const data = await $fetch<Record<string, any>[]>(`/ressources/partagees/${userId.value}`, {
       baseURL: apiBase,
       headers: { Authorization: `Bearer ${authToken.value}` },
     })
@@ -643,6 +650,7 @@ function formatDate(dateStr: string) {
 .rr-card-desc {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: var(--text-mention-grey);

@@ -5,20 +5,18 @@ definePageMeta({
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
-const { user, authToken } = useAuth()
+// Compatibilité : le composable peut exposer "authToken" ou "token" selon la version
+const _auth = useAuth() as any
+const user = _auth.user as Ref<any>
+const authToken = computed<string | null>(() =>
+  (_auth.authToken?.value ?? _auth.token?.value) ?? null,
+)
+// Récupère l'id quel que soit le nom du champ (id ou idUtilisateur)
+const userId = computed(() => (user.value as any)?.id ?? (user.value as any)?.idUtilisateur ?? null)
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-interface Mentor {
-  idUtilisateur: number
-  prenom: string
-  nom: string
-  metier?: string
-  description?: string
-  photoProfil?: string
-}
-
 interface Progression {
   objectifActuel?: string
   pourcentage: number
@@ -54,37 +52,15 @@ interface MessageRecent {
   idConversation: number
 }
 
-interface MentorCandidat {
-  idUtilisateur: number
-  prenom: string
-  nom: string
-  metier?: string
-  specialite?: string
-  note?: number
-  nombreAvis?: number
-  photoProfil?: string
-  modesAccompagnement?: string[]
-  description?: string
-}
-
 // ---------------------------------------------------------------------------
 // État
 // ---------------------------------------------------------------------------
 const isLoading = ref(true)
 
-const mentor = ref<Mentor | null>(null)
 const progression = ref<Progression | null>(null)
 const ressourcesRecommandees = ref<Ressource[]>([])
 const prochaineSeance = ref<Seance | null>(null)
 const messagesRecents = ref<MessageRecent[]>([])
-const mentorsRecommandes = ref<MentorCandidat[]>([])
-
-// Recherche mentor
-const rechercheMentor = ref('')
-const filtreTypeAccompagnement = ref('')
-const filtreMentier = ref('')
-const filtreRegion = ref('')
-const filtreDisponibilite = ref('')
 
 const isConfirmingSeance = ref(false)
 const seanceConfirmee = ref(false)
@@ -93,33 +69,25 @@ const seanceConfirmee = ref(false)
 // Chargement
 // ---------------------------------------------------------------------------
 async function fetchAll() {
-  if (!user.value?.id) return
+  if (!userId.value) return
 
   const headers = { Authorization: `Bearer ${authToken.value}` }
 
   await Promise.allSettled([
-    $fetch<Mentor>(`/mentors/mon-mentor/${user.value.id}`, { baseURL: apiBase, headers })
-      .then((d) => (mentor.value = d))
-      .catch(() => {}),
-
-    $fetch<Progression>(`/progression/utilisateur/${user.value.id}`, { baseURL: apiBase, headers })
+    $fetch<Progression>(`/progression/utilisateur/${userId.value}`, { baseURL: apiBase, headers })
       .then((d) => (progression.value = d))
       .catch(() => {}),
 
-    $fetch<Ressource[]>(`/ressources/recommandees/${user.value.id}?limit=2`, { baseURL: apiBase, headers })
+    $fetch<Ressource[]>(`/ressources/recommandees/${userId.value}?limit=2`, { baseURL: apiBase, headers })
       .then((d) => (ressourcesRecommandees.value = d))
       .catch(() => {}),
 
-    $fetch<Seance>(`/seances/prochaine/${user.value.id}`, { baseURL: apiBase, headers })
+    $fetch<Seance>(`/seances/prochaine/${userId.value}`, { baseURL: apiBase, headers })
       .then((d) => (prochaineSeance.value = d))
       .catch(() => {}),
 
-    $fetch<MessageRecent[]>(`/conversations/messages-recents/${user.value.id}?limit=2`, { baseURL: apiBase, headers })
+    $fetch<MessageRecent[]>(`/conversations/messages-recents/${userId.value}?limit=2`, { baseURL: apiBase, headers })
       .then((d) => (messagesRecents.value = d))
-      .catch(() => {}),
-
-    $fetch<MentorCandidat[]>('/mentors/recommandes?limit=2', { baseURL: apiBase, headers })
-      .then((d) => (mentorsRecommandes.value = d))
       .catch(() => {}),
   ])
 
@@ -206,7 +174,7 @@ const derniereConnexion = computed(() => {
     <div class="fr-grid-row fr-grid-row--middle rr-dashboard-header fr-mb-5w">
       <div class="fr-col">
         <h1 class="fr-h3 fr-mb-0 rr-welcome-title">
-          Bienvenue, {{ user?.firstname }} {{ user?.lastname?.[0] }}.
+          Bienvenue, {{ user?.prenom ?? user?.prenom ?? user?.firstname }} {{ (user?.nom ?? user?.nom ?? user?.lastname)?.[0] }}.
         </h1>
         <p class="fr-text--sm rr-welcome-sub fr-mb-0">
           Dernière connexion : {{ derniereConnexion }}
@@ -233,60 +201,12 @@ const derniereConnexion = computed(() => {
     <template v-else>
 
       <!-- =================================================================
-           Ligne 1 — Mentor · Évolution · Ressources recommandées
+           Ligne 1 — Évolution · Ressources recommandées
            ================================================================= -->
       <div class="fr-grid-row fr-grid-row--gutters fr-mb-4w">
 
-        <!-- Mon mentor -->
-        <div class="fr-col-12 fr-col-md-4">
-          <div class="rr-widget h-100">
-            <h2 class="rr-widget__title">
-              <span class="fr-icon-user-heart-line fr-mr-1w" aria-hidden="true"></span>
-              Mon mentor
-            </h2>
-
-            <template v-if="mentor">
-              <div class="rr-mentor-card">
-                <div class="rr-avatar rr-avatar--lg">
-                  <img
-                    v-if="mentor.photoProfil"
-                    :src="`${apiBase}${mentor.photoProfil}`"
-                    :alt="`Photo de ${mentor.prenom} ${mentor.nom}`"
-                  />
-                  <span v-else class="rr-avatar__initiales">
-                    {{ initiales(mentor.prenom, mentor.nom) }}
-                  </span>
-                </div>
-                <div>
-                  <p class="fr-text--bold fr-mb-0">{{ mentor.prenom }} {{ mentor.nom }}</p>
-                  <p class="fr-text--sm fr-text--grey fr-mb-0">{{ mentor.metier }}</p>
-                </div>
-              </div>
-              <p v-if="mentor.description" class="fr-text--sm rr-mentor-quote fr-my-2w">
-                « {{ mentor.description }} »
-              </p>
-              <NuxtLink
-                to="/messagerie"
-                class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-left fr-icon-chat-3-line"
-              >
-                Envoyer un message
-              </NuxtLink>
-            </template>
-
-            <div v-else class="rr-widget__empty">
-              <span class="fr-icon-user-heart-line rr-widget__empty-icon" aria-hidden="true"></span>
-              <p class="fr-text--sm fr-text--grey fr-mb-2w">
-                Vous n'avez pas encore de mentor attitré.
-              </p>
-              <NuxtLink to="/trouver-mentor" class="fr-btn fr-btn--sm fr-btn--secondary">
-                Trouver un mentor
-              </NuxtLink>
-            </div>
-          </div>
-        </div>
-
         <!-- Mon évolution -->
-        <div class="fr-col-12 fr-col-md-4">
+        <div class="fr-col-12 fr-col-md-6">
           <div class="rr-widget h-100">
             <h2 class="rr-widget__title">
               <span class="fr-icon-line-chart-line fr-mr-1w" aria-hidden="true"></span>
@@ -340,7 +260,7 @@ const derniereConnexion = computed(() => {
         </div>
 
         <!-- Ressources recommandées -->
-        <div class="fr-col-12 fr-col-md-4">
+        <div class="fr-col-12 fr-col-md-6">
           <div class="rr-widget h-100">
             <h2 class="rr-widget__title">
               <span class="fr-icon-book-2-line fr-mr-1w" aria-hidden="true"></span>
@@ -373,161 +293,17 @@ const derniereConnexion = computed(() => {
             </ul>
 
             <NuxtLink
-              to="/ressources"
-              class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-left fr-icon-add-line"
+              to="/mes-ressources"
+              class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-left fr-icon-folder-2-line"
             >
-              Voir toutes les ressources
+              Voir mes ressources
             </NuxtLink>
           </div>
         </div>
       </div>
 
       <!-- =================================================================
-           Ligne 2 — Trouver un mentor
-           ================================================================= -->
-      <div class="rr-widget fr-mb-4w">
-        <h2 class="rr-widget__title">
-          <span class="fr-icon-search-line fr-mr-1w" aria-hidden="true"></span>
-          Trouver un mentor
-        </h2>
-
-        <!-- Barre de recherche -->
-        <div class="fr-search-bar fr-mb-3w" role="search">
-          <label class="fr-label" for="search-mentor">
-            <span class="fr-sr-only">Rechercher un mentor</span>
-          </label>
-          <input
-            id="search-mentor"
-            v-model="rechercheMentor"
-            class="fr-input"
-            type="search"
-            placeholder="Rechercher par mots-clés (développeur, communication, soutien…)"
-            autocomplete="off"
-          />
-          <button class="fr-btn" type="button" title="Rechercher">
-            <span class="fr-sr-only">Rechercher</span>
-          </button>
-        </div>
-
-        <!-- Filtres -->
-        <div class="fr-grid-row fr-grid-row--gutters fr-mb-3w">
-          <div class="fr-col-12 fr-col-sm-6 fr-col-md-3">
-            <div class="fr-select-group fr-mb-0">
-              <label class="fr-label fr-text--sm" for="filtre-type-acc">Type d'accompagnement</label>
-              <select id="filtre-type-acc" v-model="filtreTypeAccompagnement" class="fr-select">
-                <option value="">Tous</option>
-                <option value="visio">Visio</option>
-                <option value="chat">Chat</option>
-                <option value="presentiel">Présentiel</option>
-              </select>
-            </div>
-          </div>
-          <div class="fr-col-12 fr-col-sm-6 fr-col-md-3">
-            <div class="fr-input-group fr-mb-0">
-              <label class="fr-label fr-text--sm" for="filtre-metier">Métier (optionnel)</label>
-              <input
-                id="filtre-metier"
-                v-model="filtreMentier"
-                class="fr-input"
-                type="text"
-                placeholder="Ex : Développeur, RH…"
-              />
-            </div>
-          </div>
-          <div class="fr-col-12 fr-col-sm-6 fr-col-md-3">
-            <div class="fr-select-group fr-mb-0">
-              <label class="fr-label fr-text--sm" for="filtre-region">Région</label>
-              <select id="filtre-region" v-model="filtreRegion" class="fr-select">
-                <option value="">Toutes régions</option>
-                <option value="idf">Île-de-France</option>
-                <option value="aura">Auvergne-Rhône-Alpes</option>
-                <option value="paca">Provence-Alpes-Côte d'Azur</option>
-                <option value="occ">Occitanie</option>
-                <option value="na">Nouvelle-Aquitaine</option>
-              </select>
-            </div>
-          </div>
-          <div class="fr-col-12 fr-col-sm-6 fr-col-md-3">
-            <div class="fr-select-group fr-mb-0">
-              <label class="fr-label fr-text--sm" for="filtre-dispo">Disponibilité</label>
-              <select id="filtre-dispo" v-model="filtreDisponibilite" class="fr-select">
-                <option value="">Tous</option>
-                <option value="disponible">Disponible</option>
-                <option value="occupe">Occupé</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mentors recommandés -->
-        <p class="fr-text--sm fr-text--bold fr-mb-2w">Mentors recommandés</p>
-
-        <div v-if="mentorsRecommandes.length === 0" class="rr-widget__empty">
-          <p class="fr-text--sm fr-text--grey fr-mb-0">Aucun mentor recommandé pour le moment.</p>
-        </div>
-
-        <div v-else class="fr-grid-row fr-grid-row--gutters">
-          <div
-            v-for="m in mentorsRecommandes"
-            :key="m.idUtilisateur"
-            class="fr-col-12 fr-col-md-6"
-          >
-            <div class="rr-mentor-result-card">
-              <div class="rr-mentor-result-card__top">
-                <div class="rr-avatar rr-avatar--md">
-                  <img
-                    v-if="m.photoProfil"
-                    :src="`${apiBase}${m.photoProfil}`"
-                    :alt="`Photo de ${m.prenom} ${m.nom}`"
-                  />
-                  <span v-else class="rr-avatar__initiales">
-                    {{ initiales(m.prenom, m.nom) }}
-                  </span>
-                </div>
-                <div class="rr-mentor-result-card__info">
-                  <p class="fr-text--bold fr-mb-0 rr-mentor-nom">{{ m.prenom }} {{ m.nom }}</p>
-                  <!-- Note étoiles -->
-                  <div v-if="m.note" class="rr-stars fr-mb-0" :aria-label="`Note : ${m.note} sur 5`">
-                    <span
-                      v-for="i in 5"
-                      :key="i"
-                      class="rr-star"
-                      :class="i <= Math.round(m.note) ? 'rr-star--full' : 'rr-star--empty'"
-                      aria-hidden="true"
-                    >★</span>
-                    <span class="fr-text--sm fr-text--grey fr-ml-1v">({{ m.nombreAvis }})</span>
-                  </div>
-                  <p class="fr-text--sm fr-text--grey fr-mb-0">
-                    {{ m.specialite || m.metier }}
-                  </p>
-                </div>
-              </div>
-              <p v-if="m.description" class="fr-text--sm fr-mt-1w fr-mb-2w rr-mentor-desc">
-                {{ m.description }}
-              </p>
-              <div class="rr-mentor-result-card__footer">
-                <div class="rr-modes-list">
-                  <span
-                    v-for="mode in (m.modesAccompagnement ?? [])"
-                    :key="mode"
-                    class="fr-badge fr-badge--sm fr-badge--blue-cumulus"
-                  >{{ mode }}</span>
-                </div>
-                <NuxtLink
-                  :to="`/mentors/${m.idUtilisateur}`"
-                  class="fr-btn fr-btn--tertiary fr-btn--sm"
-                >
-                  Voir profil
-                  <span class="fr-icon-arrow-right-line fr-ml-1v fr-icon--sm" aria-hidden="true"></span>
-                </NuxtLink>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- =================================================================
-           Ligne 3 — Prochaine séance · Messages récents
+           Ligne 2 — Prochaine séance · Messages récents
            ================================================================= -->
       <div class="fr-grid-row fr-grid-row--gutters">
 
@@ -724,23 +500,6 @@ const derniereConnexion = computed(() => {
 }
 
 /* ============================================================
-   Mentor widget
-   ============================================================ */
-.rr-mentor-card {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  margin-bottom: 0.75rem;
-}
-
-.rr-mentor-quote {
-  color: var(--text-mention-grey);
-  font-style: italic;
-  border-left: 3px solid var(--border-default-grey);
-  padding-left: 0.75rem;
-}
-
-/* ============================================================
    Avatar
    ============================================================ */
 .rr-avatar {
@@ -854,71 +613,6 @@ const derniereConnexion = computed(() => {
 }
 
 /* ============================================================
-   Mentor résultat (trouver un mentor)
-   ============================================================ */
-.rr-mentor-result-card {
-  border: 1px solid var(--border-default-grey);
-  padding: 1.25rem;
-  background: var(--background-default-grey);
-  transition: box-shadow 0.15s;
-}
-
-.rr-mentor-result-card:hover {
-  box-shadow: 0 2px 12px rgba(0,0,18,.08);
-}
-
-.rr-mentor-result-card__top {
-  display: flex;
-  gap: 0.875rem;
-  align-items: flex-start;
-  margin-bottom: 0.5rem;
-}
-
-.rr-mentor-result-card__info {
-  flex: 1;
-}
-
-.rr-mentor-nom {
-  font-size: 0.95rem;
-}
-
-.rr-mentor-desc {
-  color: var(--text-mention-grey);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.rr-mentor-result-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border-default-grey);
-}
-
-.rr-modes-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-/* Étoiles */
-.rr-stars {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  font-size: 0.9rem;
-}
-
-.rr-star--full  { color: #f5a623; }
-.rr-star--empty { color: var(--background-contrast-grey); }
-
-/* ============================================================
    Séance widget
    ============================================================ */
 .rr-seance-titre {
@@ -989,6 +683,7 @@ const derniereConnexion = computed(() => {
   color: var(--text-label-grey);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
