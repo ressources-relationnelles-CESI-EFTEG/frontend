@@ -12,6 +12,10 @@ const isAdmin = computed(() => {
 const isSuperAdmin = computed(() => {
   return normalizedRole.value === 'super_admin'
 })
+
+const isModo = computed(() =>
+  ['moderateur', 'administrateur', 'super_admin'].includes(normalizedRole.value),
+)
 </script>
 
 <template>
@@ -66,6 +70,14 @@ const isSuperAdmin = computed(() => {
               v-else
               class="fr-btns-group fr-btns-group--inline fr-btns-group--icon-left rr-auth-buttons"
             >
+              <NuxtLink
+                v-if="isModo"
+                class="fr-btn fr-btn--secondary fr-icon-shield-check-line"
+                to="/moderateur"
+              >
+                Modération
+              </NuxtLink>
+
               <NuxtLink
                 v-if="isAdmin"
                 class="fr-btn fr-btn--secondary fr-icon-settings-5-line"
@@ -129,6 +141,10 @@ const isSuperAdmin = computed(() => {
 
             <li v-if="isLoggedIn" class="fr-nav__item">
               <NuxtLink class="fr-nav__link" to="/ajouter-ressource">Ajouter une ressource</NuxtLink>
+            </li>
+
+            <li v-if="isModo" class="fr-nav__item">
+              <NuxtLink class="fr-nav__link" to="/moderateur">Modération</NuxtLink>
             </li>
 
             <li v-if="isAdmin" class="fr-nav__item">
