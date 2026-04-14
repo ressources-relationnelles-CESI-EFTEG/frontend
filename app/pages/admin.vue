@@ -60,12 +60,28 @@ const currentRole = computed(() => {
   return String(currentUser.value?.role ?? '').toUpperCase().trim()
 })
 
+const canAssignAdminRole = computed(() => {
+  return currentRole.value === 'SUPER_ADMIN'
+})
+
+const availableRoles = computed(() => {
+  if (currentRole.value === 'SUPER_ADMIN') {
+    return ['UTILISATEUR', 'MODERATEUR', 'ADMINISTRATEUR']
+  }
+
+  return ['UTILISATEUR', 'MODERATEUR']
+})
+
 function normalizeRole(role: string | undefined | null) {
   return String(role ?? '').toUpperCase().trim()
 }
 
 function isSuperAdmin(user: UserItem) {
   return normalizeRole(user.role) === 'SUPER_ADMIN'
+}
+
+function isAdminUser(user: UserItem) {
+  return normalizeRole(user.role) === 'ADMINISTRATEUR'
 }
 
 function isCurrentUser(user: UserItem) {
@@ -81,8 +97,14 @@ function canManageUser(targetUser: UserItem) {
     return true
   }
 
-  if (currentRole.value === 'ADMINISTRATEUR' && isSuperAdmin(targetUser)) {
-    return false
+  if (currentRole.value === 'ADMINISTRATEUR') {
+    if (isSuperAdmin(targetUser)) {
+      return false
+    }
+
+    if (isAdminUser(targetUser)) {
+      return false
+    }
   }
 
   return true
@@ -95,6 +117,10 @@ function getManageErrorMessage(targetUser: UserItem) {
 
   if (currentRole.value === 'ADMINISTRATEUR' && isSuperAdmin(targetUser)) {
     return 'Un administrateur ne peut pas modifier ou supprimer un compte SUPER_ADMIN.'
+  }
+
+  if (currentRole.value === 'ADMINISTRATEUR' && isAdminUser(targetUser)) {
+    return 'Un administrateur ne peut pas modifier ou supprimer un autre administrateur.'
   }
 
   return 'Action non autorisée.'
@@ -155,6 +181,11 @@ function validateForm() {
 
   if (!form.role.trim()) {
     errors.role = 'Veuillez sélectionner un rôle.'
+    isValid = false
+  }
+
+  if (!availableRoles.value.includes(form.role)) {
+    errors.role = 'Vous n’êtes pas autorisé à attribuer ce rôle.'
     isValid = false
   }
 
@@ -241,7 +272,9 @@ function startEdit(user: UserItem) {
   form.email = user.email ?? ''
   form.password = ''
   form.confirmPassword = ''
-  form.role = normalizeRole(user.role) || 'UTILISATEUR'
+  form.role = availableRoles.value.includes(normalizeRole(user.role))
+    ? normalizeRole(user.role)
+    : 'UTILISATEUR'
   form.statut = user.statut ?? 'ACTIF'
 }
 
@@ -269,7 +302,37 @@ async function createUser() {
       },
     })
 
-    apiSuccess.value = 'Le compte a bien été créé. Pensez à ajuster son rôle et son statut si besoin.'
+    const createdUsers = await $fetch<UserItem[]>('/utilisateurs', {
+      baseURL: apiBase,
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+
+    const createdUser = Array.isArray(createdUsers)
+      ? [...createdUsers].reverse().find((item) => item.email === form.email.trim())
+      : null
+
+    if (createdUser) {
+      await $fetch(`/utilisateurs/${createdUser.idUtilisateur}/role`, {
+        baseURL: apiBase,
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: {
+          role: form.role,
+        },
+      })
+
+      await $fetch(`/utilisateurs/${createdUser.idUtilisateur}/statut`, {
+        baseURL: apiBase,
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: {
+          statut: form.statut,
+        },
+      })
+    }
+
+    apiSuccess.value = 'Le compte a bien été créé.'
     resetForm()
     await fetchUsers()
   } catch (error: any) {
@@ -623,9 +686,13 @@ onMounted(async () => {
                               class="fr-select"
                               aria-describedby="role-error"
                             >
-                              <option value="UTILISATEUR">UTILISATEUR</option>
-                              <option value="MODERATEUR">MODERATEUR</option>
-                              <option value="ADMINISTRATEUR">ADMINISTRATEUR</option>
+                              <option
+                                v-for="roleOption in availableRoles"
+                                :key="roleOption"
+                                :value="roleOption"
+                              >
+                                {{ roleOption }}
+                              </option>
                             </select>
                             <p v-if="errors.role" id="role-error" class="fr-error-text">
                               {{ errors.role }}
@@ -654,6 +721,16 @@ onMounted(async () => {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    <div
+                      v-if="!canAssignAdminRole"
+                      class="fr-alert fr-alert--info fr-mb-3w"
+                    >
+                      <h3 class="fr-alert__title">Restriction administrateur</h3>
+                      <p>
+                        Un administrateur peut créer ou modifier uniquement des comptes utilisateur et modérateur.
+                      </p>
                     </div>
 
                     <template v-if="!isEditMode">
