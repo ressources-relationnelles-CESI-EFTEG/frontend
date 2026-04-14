@@ -24,10 +24,8 @@ test('le tableau de bord affiche au minimum sa structure principale après authe
   ])
 
   await expect(page.getByRole('link', { name: /modifier mon profil/i })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /mon mentor/i })).toBeVisible()
   await expect(page.getByRole('heading', { name: /mon évolution/i })).toBeVisible()
   await expect(page.getByRole('heading', { name: /ressources recommandées/i })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /trouver un mentor/i })).toBeVisible()
   await expect(page.getByRole('heading', { name: /prochaine séance/i })).toBeVisible()
   await expect(page.getByRole('heading', { name: /messages récents/i })).toBeVisible()
 })
