@@ -7,6 +7,24 @@ const authToken = computed<string | null>(() =>
   (_auth.authToken?.value ?? _auth.token?.value) ?? null,
 )
 
+const normalizedRole = computed(() =>
+  String(_auth.user?.value?.role ?? '').toLowerCase().trim(),
+)
+const isModo = computed(() =>
+  ['moderateur', 'administrateur', 'super_admin'].includes(normalizedRole.value),
+)
+
+async function supprimerRessource() {
+  if (!ressource.value) return
+  if (!window.confirm(`Supprimer la ressource « ${ressource.value.titre} » ? Cette action est irréversible.`)) return
+  await $fetch(`/ressources/${route.params.id}`, {
+    baseURL: apiBase,
+    method: 'DELETE',
+    headers: authToken.value ? { Authorization: `Bearer ${authToken.value}` } : {},
+  })
+  navigateTo('/ressources')
+}
+
 const isLoading = ref(true)
 const errorMessage = ref('')
 const ressource = ref<Record<string, any> | null>(null)
@@ -174,10 +192,20 @@ function nomAuteur(u: Record<string, any> | null | undefined) {
             <div class="rr-contenu">{{ ressource.contenu }}</div>
           </div>
 
-          <!-- Navigation retour -->
-          <NuxtLink to="/ressources" class="fr-btn fr-btn--secondary fr-btn--icon-left fr-icon-arrow-left-line">
-            Retour aux ressources
-          </NuxtLink>
+          <!-- Navigation retour + actions modération -->
+          <div class="fr-btns-group fr-btns-group--inline fr-mt-2w">
+            <NuxtLink to="/ressources" class="fr-btn fr-btn--secondary fr-btn--icon-left fr-icon-arrow-left-line">
+              Retour aux ressources
+            </NuxtLink>
+            <button
+              v-if="isModo"
+              type="button"
+              class="fr-btn fr-btn--tertiary fr-btn--icon-left fr-icon-delete-line"
+              @click="supprimerRessource"
+            >
+              Supprimer
+            </button>
+          </div>
         </div>
 
         <!-- Colonne latérale -->
