@@ -293,10 +293,10 @@ const derniereConnexion = computed(() => {
             </ul>
 
             <NuxtLink
-              to="/mes-ressources"
+              to="/ressources"
               class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-left fr-icon-folder-2-line"
             >
-              Voir mes ressources
+              Voir les ressources
             </NuxtLink>
           </div>
         </div>

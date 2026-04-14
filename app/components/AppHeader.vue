@@ -116,7 +116,7 @@ const isSuperAdmin = computed(() => {
             </li>
 
             <li v-if="isLoggedIn" class="fr-nav__item">
-              <NuxtLink class="fr-nav__link" to="/mes-ressources">Mes ressources</NuxtLink>
+              <NuxtLink class="fr-nav__link" to="/ressources">Ressources</NuxtLink>
             </li>
 
             <li v-if="isLoggedIn" class="fr-nav__item">
