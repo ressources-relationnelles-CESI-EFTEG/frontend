@@ -607,7 +607,7 @@ function setTab(tab: string) {
           
           <p class="fr-mb-1w fr-text--sm">
             <span class="fr-icon-user-line fr-icon--sm" aria-hidden="true"></span>
-            Phrase d'accorche : {{ phraseAccroche }}
+            Phrase d'accroche : {{ phraseAccroche }}
           </p>
           
           <hr class="fr-hr fr-mb-2w" />
