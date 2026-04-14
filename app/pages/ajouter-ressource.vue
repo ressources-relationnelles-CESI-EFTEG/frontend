@@ -36,10 +36,7 @@ const typeRessource = ref('')
 const typeRelation = ref('')
 const niveauDifficulte = ref('')
 const visibilite = ref('privee')
-const lienPartage = ref('')
 const idCategorie = ref('')
-const tagInput = ref('')
-const tags = ref<string[]>([])
 
 // ---------------------------------------------------------------------------
 // Options (issues du MCD)
@@ -93,28 +90,6 @@ async function fetchCategories() {
 onMounted(() => {
   fetchCategories()
 })
-
-// ---------------------------------------------------------------------------
-// Gestion des tags
-// ---------------------------------------------------------------------------
-function ajouterTag() {
-  const val = tagInput.value.trim()
-  if (val && !tags.value.includes(val) && tags.value.length < 10) {
-    tags.value.push(val)
-  }
-  tagInput.value = ''
-}
-
-function supprimerTag(tag: string) {
-  tags.value = tags.value.filter((t) => t !== tag)
-}
-
-function onTagKeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter' || e.key === ',') {
-    e.preventDefault()
-    ajouterTag()
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Validation par étape
@@ -180,7 +155,7 @@ const isSubmitting = ref(false)
 const apiError = ref('')
 const successMessage = ref('')
 
-async function onSubmit(statut: 'brouillon' | 'en_attente') {
+async function onSubmit() {
   if (!validateEtape1()) { etapeActive.value = 1; return }
   if (!validateEtape2()) { etapeActive.value = 2; return }
   if (!userId.value) return
@@ -196,26 +171,20 @@ async function onSubmit(statut: 'brouillon' | 'en_attente') {
       headers: { Authorization: `Bearer ${authToken.value}` },
       body: {
         idUtilisateur: userId.value,
+        idCategorie: Number(idCategorie.value),
         titre: titre.value.trim(),
         description: description.value.trim() || undefined,
         contenu: contenu.value.trim(),
-        typeRessource: typeRessource.value,
-        typeRelation: typeRelation.value || undefined,
-        niveauDifficulte: niveauDifficulte.value || undefined,
-        visibilite: visibilite.value,
-        lienPartage: lienPartage.value.trim() || undefined,
-        idCategorie: Number(idCategorie.value),
-        tags: tags.value.length ? tags.value : undefined,
-        statut,
+        typeRessource: typeRessource.value ? typeRessource.value.toUpperCase() : undefined,
+        typeRelation: typeRelation.value ? typeRelation.value.toUpperCase() : undefined,
+        niveauDifficulte: niveauDifficulte.value ? niveauDifficulte.value.toUpperCase() : undefined,
+        visibilite: visibilite.value.toUpperCase(),
       },
     })
 
-    successMessage.value =
-      statut === 'brouillon'
-        ? 'Votre ressource a été sauvegardée en brouillon.'
-        : 'Votre ressource a été soumise pour validation.'
+    successMessage.value = 'Votre ressource a été soumise pour validation.'
 
-    await navigateTo('/mes-ressources')
+    await navigateTo('/ressources')
   } catch (error: any) {
     const message = error?.data?.message
     if (Array.isArray(message)) {
@@ -248,7 +217,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
         <ol class="fr-breadcrumb__list">
           <li><NuxtLink class="fr-breadcrumb__link" to="/accueil">Accueil</NuxtLink></li>
           <li><NuxtLink class="fr-breadcrumb__link" to="/mon-compte">Mon compte</NuxtLink></li>
-          <li><NuxtLink class="fr-breadcrumb__link" to="/mes-ressources">Mes ressources</NuxtLink></li>
+          <li><NuxtLink class="fr-breadcrumb__link" to="/ressources">Ressources</NuxtLink></li>
           <li><a class="fr-breadcrumb__link" aria-current="page">Ajouter une ressource</a></li>
         </ol>
       </div>
@@ -435,11 +404,11 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
 
               <!-- Actions étape 1 -->
               <div class="fr-fieldset__element">
-                <div class="fr-btns-group fr-btns-group--inline-md fr-btns-group--right">
-                  <NuxtLink to="/mes-ressources" class="fr-btn fr-btn--secondary">
+                <div class="fr-btns-group fr-btns-group--inline">
+                  <NuxtLink to="/ressources" class="fr-btn fr-btn--secondary">
                     Annuler
                   </NuxtLink>
-                  <button type="submit" class="fr-btn fr-btn--icon-right fr-icon-arrow-right-line">
+                  <button type="submit" class="fr-btn">
                     Étape suivante
                   </button>
                 </div>
@@ -481,75 +450,9 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
                 </div>
               </div>
 
-              <!-- Lien externe -->
-              <div class="fr-fieldset__element">
-                <div class="fr-input-group">
-                  <label class="fr-label" for="lien-partage">
-                    Lien externe
-                    <span class="fr-hint-text">
-                      Optionnel — URL vers une vidéo, un article, un document en ligne…
-                    </span>
-                  </label>
-                  <input
-                    id="lien-partage"
-                    v-model="lienPartage"
-                    class="fr-input"
-                    type="url"
-                    placeholder="https://exemple.fr/ma-ressource"
-                    autocomplete="off"
-                  />
-                </div>
-              </div>
-
-              <!-- Tags -->
-              <div class="fr-fieldset__element">
-                <div class="fr-input-group">
-                  <label class="fr-label" for="tags-input">
-                    Mots-clés (tags)
-                    <span class="fr-hint-text">
-                      Optionnel — appuyez sur Entrée ou virgule pour ajouter. Maximum 10 tags.
-                    </span>
-                  </label>
-                  <div class="rr-tags-input-wrapper">
-                    <div v-if="tags.length" class="rr-tags-list fr-mb-1w">
-                      <span
-                        v-for="tag in tags"
-                        :key="tag"
-                        class="fr-tag fr-tag--sm rr-tag-item"
-                      >
-                        {{ tag }}
-                        <button
-                          type="button"
-                          class="fr-tag__dismiss"
-                          :aria-label="`Supprimer le tag « ${tag} »`"
-                          @click="supprimerTag(tag)"
-                        >
-                          <span class="fr-icon-close-line fr-icon--xs" aria-hidden="true"></span>
-                        </button>
-                      </span>
-                    </div>
-                    <div class="fr-input-wrap fr-fi-add-line">
-                      <input
-                        id="tags-input"
-                        v-model="tagInput"
-                        class="fr-input"
-                        type="text"
-                        placeholder="Ex : communication, confiance…"
-                        :disabled="tags.length >= 10"
-                        @keydown="onTagKeydown"
-                        @blur="ajouterTag"
-                      />
-                    </div>
-                  </div>
-                  <p v-if="tags.length >= 10" class="fr-hint-text fr-mt-1v">
-                    Nombre maximum de tags atteint (10/10).
-                  </p>
-                </div>
-              </div>
-
               <!-- Actions étape 2 -->
               <div class="fr-fieldset__element">
-                <div class="fr-btns-group fr-btns-group--inline-md fr-btns-group--right">
+                <div class="fr-btns-group fr-btns-group--inline">
                   <button
                     type="button"
                     class="fr-btn fr-btn--secondary fr-btn--icon-left fr-icon-arrow-left-line"
@@ -557,7 +460,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
                   >
                     Précédent
                   </button>
-                  <button type="submit" class="fr-btn fr-btn--icon-right fr-icon-arrow-right-line">
+                  <button type="submit" class="fr-btn">
                     Étape suivante
                   </button>
                 </div>
@@ -651,10 +554,6 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
                     <dt>Visibilité</dt>
                     <dd>{{ visibilites.find(v => v.value === visibilite)?.label || '—' }}</dd>
                   </div>
-                  <div v-if="tags.length" class="rr-recap-row">
-                    <dt>Tags</dt>
-                    <dd>{{ tags.join(', ') }}</dd>
-                  </div>
                 </dl>
               </div>
             </div>
@@ -672,19 +571,10 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
                 </button>
                 <button
                   type="button"
-                  class="fr-btn fr-btn--secondary fr-btn--icon-left fr-icon-save-line"
-                  :aria-busy="isSubmitting ? 'true' : 'false'"
-                  :disabled="isSubmitting"
-                  @click="onSubmit('brouillon')"
-                >
-                  {{ isSubmitting ? 'Sauvegarde…' : 'Enregistrer en brouillon' }}
-                </button>
-                <button
-                  type="button"
                   class="fr-btn fr-btn--icon-left fr-icon-send-plane-line"
                   :aria-busy="isSubmitting ? 'true' : 'false'"
                   :disabled="isSubmitting"
-                  @click="onSubmit('en_attente')"
+                  @click="onSubmit()"
                 >
                   {{ isSubmitting ? 'Soumission…' : 'Soumettre pour validation' }}
                 </button>
@@ -719,9 +609,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
               <strong>Étape 2 :</strong> Rédigez ou collez le contenu de votre ressource.
             </p>
             <ul class="fr-text--sm rr-help-list">
-              <li>Le <strong>contenu</strong> est le cœur de votre ressource — soyez précis.</li>
-              <li>Ajoutez un <strong>lien externe</strong> si votre ressource pointe vers une vidéo ou un site.</li>
-              <li>Les <strong>tags</strong> améliorent la visibilité dans les recherches.</li>
+              <li>Le <strong>contenu</strong> est le cœur de votre ressource — soyez précis et détaillé.</li>
             </ul>
           </template>
 
@@ -730,8 +618,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
               <strong>Étape 3 :</strong> Choisissez comment publier votre ressource.
             </p>
             <ul class="fr-text--sm rr-help-list">
-              <li><strong>Brouillon</strong> : sauvegardé, non visible, modifiable à tout moment.</li>
-              <li><strong>Soumettre</strong> : envoyé en attente de validation par un modérateur.</li>
+              <li><strong>Soumettre</strong> : votre ressource est envoyée en attente de validation par un modérateur.</li>
               <li>Une ressource <strong>publique</strong> sera accessible à tous une fois validée.</li>
             </ul>
           </template>
@@ -795,33 +682,6 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
 .rr-textarea-large {
   min-height: 220px;
   resize: vertical;
-}
-
-/* Tags */
-.rr-tags-input-wrapper {
-  width: 100%;
-}
-
-.rr-tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.rr-tag-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.fr-tag__dismiss {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0 0 0 0.25rem;
-  color: inherit;
-  display: inline-flex;
-  align-items: center;
 }
 
 /* Cartes visibilité */

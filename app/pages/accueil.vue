@@ -6,7 +6,7 @@ const quickResources = [
   {
     id: 'r1',
     title: 'Découvrir mes ressources',
-    to: '/mes-ressources',
+    to: '/ressources',
     icon: 'fr-icon-book-2-line',
   },
   {
@@ -18,19 +18,19 @@ const quickResources = [
   {
     id: 'r3',
     title: 'Dernières ressources',
-    to: '/mes-ressources',
+    to: '/ressources',
     icon: 'fr-icon-file-text-line',
   },
   {
     id: 'r4',
     title: 'Ressources recommandées',
-    to: '/mes-ressources',
+    to: '/ressources',
     icon: 'fr-icon-star-line',
   },
   {
     id: 'r5',
     title: 'Rechercher une ressource',
-    to: '/mes-ressources',
+    to: '/ressources',
     icon: 'fr-icon-search-line',
   },
 ]
@@ -70,7 +70,7 @@ function scrollRight() {
         </p>
 
         <div class="fr-mt-3w">
-          <NuxtLink to="/mes-ressources" class="fr-btn">
+          <NuxtLink to="/ressources" class="fr-btn">
             Découvrir les ressources
           </NuxtLink>
         </div>
