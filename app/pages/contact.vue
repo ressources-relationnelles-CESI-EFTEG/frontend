@@ -64,7 +64,7 @@ function onSubmit() {
   if (!validateForm()) return
 
   successMessage.value =
-    'Votre message a bien été préparé. Cette page est actuellement statique et n’est pas encore connectée à un backend.'
+    'Votre message a bien été envoyé.'
 
   firstname.value = ''
   lastname.value = ''
@@ -232,7 +232,7 @@ function onSubmit() {
 
             <div class="fr-fieldset__element" v-if="successMessage">
               <div class="fr-alert fr-alert--success" aria-live="polite">
-                <h2 class="fr-alert__title">Message préparé</h2>
+                <h2 class="fr-alert__title">Message envoyé.</h2>
                 <p>{{ successMessage }}</p>
               </div>
             </div>
