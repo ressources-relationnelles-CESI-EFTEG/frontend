@@ -40,7 +40,7 @@ const form = reactive({
   email: '',
   password: '',
   confirmPassword: '',
-  role: 'UTILISATEUR',
+  role: 'CITOYEN',
   statut: 'ACTIF',
 })
 
@@ -66,10 +66,10 @@ const canAssignAdminRole = computed(() => {
 
 const availableRoles = computed(() => {
   if (currentRole.value === 'SUPER_ADMIN') {
-    return ['UTILISATEUR', 'MODERATEUR', 'ADMINISTRATEUR']
+    return ['CITOYEN', 'MODERATEUR', 'ADMINISTRATEUR']
   }
 
-  return ['UTILISATEUR', 'MODERATEUR']
+  return ['CITOYEN', 'MODERATEUR']
 })
 
 function normalizeRole(role: string | undefined | null) {
@@ -147,7 +147,7 @@ function resetForm() {
   form.email = ''
   form.password = ''
   form.confirmPassword = ''
-  form.role = 'UTILISATEUR'
+  form.role = 'CITOYEN'
   form.statut = 'ACTIF'
   editingUserId.value = null
   showForm.value = false
@@ -274,7 +274,7 @@ function startEdit(user: UserItem) {
   form.confirmPassword = ''
   form.role = availableRoles.value.includes(normalizeRole(user.role))
     ? normalizeRole(user.role)
-    : 'UTILISATEUR'
+    : 'CITOYEN'
   form.statut = user.statut ?? 'ACTIF'
 }
 
@@ -729,7 +729,7 @@ onMounted(async () => {
                     >
                       <h3 class="fr-alert__title">Restriction administrateur</h3>
                       <p>
-                        Un administrateur peut créer ou modifier uniquement des comptes utilisateur et modérateur.
+                        Un administrateur peut créer ou modifier uniquement des comptes citoyen et modérateur.
                       </p>
                     </div>
 
@@ -769,7 +769,7 @@ onMounted(async () => {
                                 class="fr-input"
                                 :class="{ 'fr-input--error': !!errors.confirmPassword }"
                                 type="password"
-                                name="confirmPassword"
+                                name="password"
                                 autocomplete="new-password"
                                 aria-describedby="confirmPassword-error"
                               />
