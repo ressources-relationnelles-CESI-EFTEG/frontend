@@ -3,18 +3,22 @@ definePageMeta({
   middleware: 'auth',
 })
 
+const route = useRoute()
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase as string
 
-// Compatibilité : le composable peut exposer 'authToken' ou 'token' selon la version
 const _auth = useAuth() as any
 const user = _auth.user as Ref<any>
 const authToken = computed<string | null>(() =>
   (_auth.authToken?.value ?? _auth.token?.value) ?? null,
 )
-
-// Récupère l'id utilisateur quel que soit le nom du champ (id ou idUtilisateur)
 const userId = computed(() => user.value?.id ?? user.value?.idUtilisateur ?? null)
+
+// ---------------------------------------------------------------------------
+// Chargement de la ressource existante
+// ---------------------------------------------------------------------------
+const isLoading = ref(true)
+const loadError = ref('')
 
 // ---------------------------------------------------------------------------
 // Étapes du formulaire
@@ -39,7 +43,7 @@ const visibilite = ref('privee')
 const idCategorie = ref('')
 
 // ---------------------------------------------------------------------------
-// Options (issues du MCD)
+// Options
 // ---------------------------------------------------------------------------
 const typesRessource = [
   { value: 'article', label: 'Article' },
@@ -87,8 +91,40 @@ async function fetchCategories() {
   }
 }
 
-onMounted(() => {
-  fetchCategories()
+async function fetchRessource() {
+  try {
+    const data = await $fetch<Record<string, any>>(`/ressources/${route.params.id}`, {
+      baseURL: apiBase,
+      headers: { Authorization: `Bearer ${authToken.value}` },
+    })
+
+    // Vérifier que l'utilisateur est bien le propriétaire
+    const ownerId = data.utilisateur?.id ?? data.utilisateur?.idUtilisateur ?? data.idUtilisateur
+    if (ownerId && userId.value && Number(ownerId) !== Number(userId.value)) {
+      loadError.value = "Vous n'êtes pas autorisé à modifier cette ressource."
+      return
+    }
+
+    titre.value = data.titre ?? ''
+    description.value = data.description ?? ''
+    contenu.value = data.contenu ?? ''
+    typeRessource.value = (data.typeRessource ?? '').toLowerCase()
+    typeRelation.value = (data.typeRelation ?? '').toLowerCase()
+    niveauDifficulte.value = (data.niveauDifficulte ?? '').toLowerCase()
+    visibilite.value = (data.visibilite ?? 'privee').toLowerCase()
+    idCategorie.value = data.categorie?.idCategorie ? String(data.categorie.idCategorie) : ''
+  } catch (error: any) {
+    if (error?.statusCode === 404) {
+      loadError.value = 'Cette ressource est introuvable.'
+    } else {
+      loadError.value = 'Impossible de charger la ressource à modifier.'
+    }
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([fetchCategories(), fetchRessource()])
+  isLoading.value = false
 })
 
 // ---------------------------------------------------------------------------
@@ -149,7 +185,7 @@ function etapePrecedente() {
 }
 
 // ---------------------------------------------------------------------------
-// Soumission
+// Soumission (PATCH + resoumission à validation)
 // ---------------------------------------------------------------------------
 const isSubmitting = ref(false)
 const apiError = ref('')
@@ -158,21 +194,16 @@ const submitted = ref(false)
 async function onSubmit() {
   if (!validateEtape1()) { etapeActive.value = 1; return }
   if (!validateEtape2()) { etapeActive.value = 2; return }
-  if (!userId.value) {
-    apiError.value = 'Impossible de récupérer votre identifiant. Veuillez vous reconnecter.'
-    return
-  }
 
   isSubmitting.value = true
   apiError.value = ''
 
   try {
-    await $fetch('/ressources', {
+    await $fetch(`/ressources/${route.params.id}`, {
       baseURL: apiBase,
-      method: 'POST',
+      method: 'PATCH',
       headers: { Authorization: `Bearer ${authToken.value}` },
       body: {
-        idUtilisateur: userId.value,
         idCategorie: Number(idCategorie.value),
         titre: titre.value.trim(),
         description: description.value.trim() || undefined,
@@ -181,19 +212,19 @@ async function onSubmit() {
         typeRelation: typeRelation.value ? typeRelation.value.toUpperCase() : undefined,
         niveauDifficulte: niveauDifficulte.value ? niveauDifficulte.value.toUpperCase() : undefined,
         visibilite: visibilite.value.toUpperCase(),
+        statut: 'EN_ATTENTE',
       },
     })
 
     submitted.value = true
   } catch (error: any) {
-    console.error('[ajouter-ressource] erreur POST /ressources :', error)
     const message = error?.data?.message
     if (Array.isArray(message)) {
       apiError.value = message.join(' ')
     } else if (typeof message === 'string') {
       apiError.value = message
     } else {
-      apiError.value = 'La création de la ressource a échoué. Veuillez réessayer.'
+      apiError.value = 'La modification de la ressource a échoué. Veuillez réessayer.'
     }
   } finally {
     isSubmitting.value = false
@@ -211,28 +242,42 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
   <main id="contenu" role="main" class="fr-container fr-py-6w">
     <!-- Fil d'Ariane -->
     <nav class="fr-breadcrumb fr-mb-4w" aria-label="Vous êtes ici :">
-      <button class="fr-breadcrumb__button" aria-expanded="false" aria-controls="breadcrumb-ajout">
+      <button class="fr-breadcrumb__button" aria-expanded="false" aria-controls="breadcrumb-modifier">
         Voir le fil d'Ariane
       </button>
-      <div class="fr-collapse" id="breadcrumb-ajout">
+      <div class="fr-collapse" id="breadcrumb-modifier">
         <ol class="fr-breadcrumb__list">
           <li><NuxtLink class="fr-breadcrumb__link" to="/accueil">Accueil</NuxtLink></li>
-          <li><NuxtLink class="fr-breadcrumb__link" to="/mon-compte">Mon compte</NuxtLink></li>
           <li><NuxtLink class="fr-breadcrumb__link" to="/ressources">Ressources</NuxtLink></li>
-          <li><a class="fr-breadcrumb__link" aria-current="page">Ajouter une ressource</a></li>
+          <li><a class="fr-breadcrumb__link" aria-current="page">Modifier la ressource</a></li>
         </ol>
       </div>
     </nav>
 
-    <!-- ================================================================
-         CONFIRMATION DE SOUMISSION
-         ================================================================ -->
-    <div v-if="submitted" class="fr-grid-row fr-grid-row--center fr-py-6w">
+    <!-- Chargement -->
+    <div v-if="isLoading" class="fr-grid-row fr-grid-row--center fr-py-8w">
+      <div class="fr-col-auto rr-loader" role="status" aria-label="Chargement en cours…">
+        <span class="fr-icon-refresh-line rr-spin" aria-hidden="true"></span>
+        <span class="fr-ml-1w">Chargement de la ressource…</span>
+      </div>
+    </div>
+
+    <!-- Erreur de chargement -->
+    <div v-else-if="loadError" class="fr-alert fr-alert--error fr-mb-3w" role="alert">
+      <h2 class="fr-alert__title">Ressource indisponible</h2>
+      <p>{{ loadError }}</p>
+      <NuxtLink to="/ressources" class="fr-btn fr-btn--tertiary fr-mt-2w">
+        Retour aux ressources
+      </NuxtLink>
+    </div>
+
+    <!-- Confirmation de soumission -->
+    <div v-else-if="submitted" class="fr-grid-row fr-grid-row--center fr-py-6w">
       <div class="fr-col-12 fr-col-lg-8">
         <div class="fr-alert fr-alert--success fr-mb-4w">
-          <h2 class="fr-alert__title">Ressource soumise avec succès !</h2>
+          <h2 class="fr-alert__title">Ressource soumise à validation !</h2>
           <p>
-            Votre ressource <strong>« {{ titre }} »</strong> a été soumise et est
+            Votre ressource <strong>« {{ titre }} »</strong> a été modifiée et est
             <strong>en attente de validation</strong> par un modérateur.
             Elle sera visible publiquement une fois validée.
           </p>
@@ -241,13 +286,17 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
           <NuxtLink to="/ressources" class="fr-btn fr-btn--secondary fr-btn--icon-left fr-icon-arrow-left-line">
             Voir les ressources
           </NuxtLink>
-          <NuxtLink to="/ajouter-ressource" class="fr-btn fr-btn--icon-left fr-icon-add-circle-line" @click="submitted = false">
-            Ajouter une autre ressource
+          <NuxtLink
+            :to="`/ressources/${route.params.id}`"
+            class="fr-btn fr-btn--icon-left fr-icon-eye-line"
+          >
+            Voir la ressource
           </NuxtLink>
         </div>
       </div>
     </div>
 
+    <!-- Formulaire -->
     <div v-else class="fr-grid-row fr-grid-row--gutters">
       <!-- Colonne principale -->
       <div class="fr-col-12 fr-col-lg-8">
@@ -255,12 +304,13 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
         <!-- En-tête -->
         <div class="rr-page-header fr-mb-4w">
           <h1 class="fr-h3 fr-mb-1w">
-            <span class="fr-icon-add-circle-line fr-mr-1w" aria-hidden="true"></span>
-            Ajouter une ressource
+            <span class="fr-icon-edit-line fr-mr-1w" aria-hidden="true"></span>
+            Modifier la ressource
           </h1>
           <p class="fr-text--sm fr-text--grey fr-mb-0">
-            Partagez une ressource utile avec la communauté. Les champs marqués d'un
-            <abbr title="obligatoire">*</abbr> sont obligatoires.
+            Modifiez votre ressource. Une fois soumise, elle sera
+            <strong>resoumise à validation</strong> par un modérateur.
+            Les champs marqués d'un <abbr title="obligatoire">*</abbr> sont obligatoires.
           </p>
         </div>
 
@@ -279,7 +329,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
 
         <!-- Erreur API -->
         <div v-if="apiError" class="fr-alert fr-alert--error fr-mb-3w" role="alert">
-          <h2 class="fr-alert__title">Erreur lors de la création</h2>
+          <h2 class="fr-alert__title">Erreur lors de la modification</h2>
           <p>{{ apiError }}</p>
         </div>
 
@@ -504,6 +554,17 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
               Options de publication
             </legend>
 
+            <!-- Avertissement revalidation -->
+            <div class="fr-fieldset__element">
+              <div class="fr-callout fr-callout--blue-ecume fr-mb-3w">
+                <p class="fr-callout__text">
+                  <span class="fr-icon-information-line fr-mr-1w" aria-hidden="true"></span>
+                  En soumettant cette modification, votre ressource sera
+                  <strong>resoumise à validation</strong> par un modérateur avant d'être à nouveau visible publiquement.
+                </p>
+              </div>
+            </div>
+
             <!-- Visibilité -->
             <div class="fr-fieldset__element">
               <fieldset class="fr-fieldset" aria-labelledby="visibilite-legend">
@@ -601,7 +662,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
                   :disabled="isSubmitting"
                   @click="onSubmit()"
                 >
-                  {{ isSubmitting ? 'Soumission…' : 'Soumettre pour validation' }}
+                  {{ isSubmitting ? 'Soumission…' : 'Soumettre la modification' }}
                 </button>
               </div>
             </div>
@@ -612,7 +673,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
 
       <!-- Colonne latérale — aide contextuelle -->
       <div class="fr-col-12 fr-col-lg-4">
-        <aside class="fr-p-3w rr-side-help" aria-label="Aide à la création">
+        <aside class="fr-p-3w rr-side-help" aria-label="Aide à la modification">
           <h2 class="fr-h6 fr-mb-2w">
             <span class="fr-icon-question-line fr-mr-1w" aria-hidden="true"></span>
             Aide
@@ -620,7 +681,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
 
           <template v-if="etapeActive === 1">
             <p class="fr-text--sm fr-mb-2w">
-              <strong>Étape 1 :</strong> Renseignez les informations essentielles pour identifier votre ressource.
+              <strong>Étape 1 :</strong> Modifiez les informations essentielles de votre ressource.
             </p>
             <ul class="fr-text--sm rr-help-list">
               <li>Le <strong>titre</strong> doit être court et explicite.</li>
@@ -631,7 +692,7 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
 
           <template v-else-if="etapeActive === 2">
             <p class="fr-text--sm fr-mb-2w">
-              <strong>Étape 2 :</strong> Rédigez ou collez le contenu de votre ressource.
+              <strong>Étape 2 :</strong> Modifiez le contenu de votre ressource.
             </p>
             <ul class="fr-text--sm rr-help-list">
               <li>Le <strong>contenu</strong> est le cœur de votre ressource — soyez précis et détaillé.</li>
@@ -640,11 +701,11 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
 
           <template v-else>
             <p class="fr-text--sm fr-mb-2w">
-              <strong>Étape 3 :</strong> Choisissez comment publier votre ressource.
+              <strong>Étape 3 :</strong> Confirmez et soumettez vos modifications.
             </p>
             <ul class="fr-text--sm rr-help-list">
-              <li><strong>Soumettre</strong> : votre ressource est envoyée en attente de validation par un modérateur.</li>
-              <li>Une ressource <strong>publique</strong> sera accessible à tous une fois validée.</li>
+              <li>Après soumission, votre ressource sera <strong>en attente de validation</strong> par un modérateur.</li>
+              <li>Elle ne sera plus visible publiquement tant qu'elle n'est pas revalidée.</li>
             </ul>
           </template>
 
@@ -675,24 +736,21 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
           </div>
         </aside>
       </div>
-    </div><!-- fin v-else -->
+    </div>
   </main>
 </template>
 
 <style scoped>
-/* En-tête */
 .rr-page-header {
   border-bottom: 2px solid var(--border-default-grey);
   padding-bottom: 1.5rem;
 }
 
-/* Champ obligatoire */
 .rr-required {
   color: var(--error-425-625);
   margin-left: 0.25rem;
 }
 
-/* Compteur de caractères */
 .rr-counter {
   text-align: right;
   color: var(--text-mention-grey);
@@ -703,13 +761,11 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
   font-weight: 600;
 }
 
-/* Grand textarea contenu */
 .rr-textarea-large {
   min-height: 220px;
   resize: vertical;
 }
 
-/* Cartes visibilité */
 .rr-visibilite-card {
   border: 2px solid var(--border-default-grey);
   padding: 1rem;
@@ -736,7 +792,6 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
   padding-left: 1.5rem;
 }
 
-/* Récapitulatif */
 .rr-recap-block {
   background: var(--background-alt-grey);
   border: 1px solid var(--border-default-grey);
@@ -771,7 +826,6 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
   word-break: break-word;
 }
 
-/* Colonne d'aide */
 .rr-side-help {
   border: 1px solid var(--border-default-grey);
   background: var(--background-alt-grey);
@@ -784,7 +838,6 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
   line-height: 1.7;
 }
 
-/* Progression latérale */
 .rr-progress {
   display: flex;
   flex-direction: column;
@@ -837,5 +890,20 @@ const titreRestant = computed(() => TITRE_MAX - titre.value.length)
 .rr-progress-step--active .rr-progress-label {
   font-weight: 700;
   color: var(--text-title-grey);
+}
+
+.rr-loader {
+  display: flex;
+  align-items: center;
+  color: var(--text-mention-grey);
+}
+
+.rr-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

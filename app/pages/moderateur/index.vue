@@ -175,13 +175,16 @@ async function supprimerRessource(id: number) {
 // Watch onglet
 // ---------------------------------------------------------------------------
 watch(onglet, (val) => {
-  if (val === 'ressources' && ressourcesAValider.value.length === 0) fetchRessourcesModeration()
+  if (val === 'ressources') fetchRessourcesModeration()
 })
 
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
-onMounted(fetchSignalements)
+onMounted(() => {
+  fetchSignalements()
+  fetchRessourcesModeration()
+})
 
 // ---------------------------------------------------------------------------
 // Utilitaires
@@ -507,6 +510,14 @@ function labelTypeRessource(type: string) {
                   <!-- Actions -->
                   <div class="fr-card__footer rr-card-footer">
                     <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-btns-group--icon-left">
+                      <li>
+                        <NuxtLink
+                          :to="`/ressources/${r.idRessource}?from=moderateur`"
+                          class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-left fr-icon-eye-line"
+                        >
+                          Voir
+                        </NuxtLink>
+                      </li>
                       <li v-if="r.statut !== 'VALIDEE'">
                         <button
                           type="button"

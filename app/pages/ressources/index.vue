@@ -5,11 +5,15 @@ const _auth = useAuth() as any
 const authToken = computed<string | null>(() =>
   (_auth.authToken?.value ?? _auth.token?.value) ?? null,
 )
+const userId = computed<number | null>(() =>
+  (_auth.user?.value as any)?.id ?? (_auth.user?.value as any)?.idUtilisateur ?? null,
+)
 
 // --- État ---
 const isLoading = ref(true)
 const errorMessage = ref('')
 const ressources = ref<Record<string, any>[]>([])
+const mesRessources = ref<Record<string, any>[]>([])
 const categories = ref<Record<string, any>[]>([])
 
 // --- Filtres ---
@@ -40,6 +44,19 @@ async function fetchRessources() {
   }
 }
 
+async function fetchMesRessources() {
+  if (!userId.value) return
+  try {
+    const data = await $fetch<Record<string, any>[]>(`/ressources/utilisateur/${userId.value}`, {
+      baseURL: apiBase,
+      headers: { Authorization: `Bearer ${authToken.value}` },
+    })
+    mesRessources.value = data
+  } catch {
+    mesRessources.value = []
+  }
+}
+
 async function fetchCategories() {
   try {
     const data = await $fetch<Record<string, any>[]>('/categories', {
@@ -53,13 +70,21 @@ async function fetchCategories() {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchRessources(), fetchCategories()])
+  await Promise.all([fetchRessources(), fetchMesRessources(), fetchCategories()])
   isLoading.value = false
 })
 
 // --- Filtres calculés ---
 const ressourcesFiltrees = computed(() =>
   ressources.value.filter((r) => {
+    if (filtreType.value && r.typeRessource !== filtreType.value) return false
+    if (filtreCategorie.value && String(r.categorie?.idCategorie) !== filtreCategorie.value) return false
+    return true
+  }),
+)
+
+const mesRessourcesFiltrees = computed(() =>
+  mesRessources.value.filter((r) => {
     if (filtreType.value && r.typeRessource !== filtreType.value) return false
     if (filtreCategorie.value && String(r.categorie?.idCategorie) !== filtreCategorie.value) return false
     return true
@@ -105,6 +130,16 @@ function nomAuteur(ressource: Record<string, any>) {
   const u = ressource.utilisateur
   if (!u) return 'Anonyme'
   return `${u.prenom ?? ''} ${u.nom ?? ''}`.trim() || 'Anonyme'
+}
+
+function badgeStatut(statut: string) {
+  const map: Record<string, { label: string; classe: string }> = {
+    BROUILLON:  { label: 'Brouillon',            classe: 'fr-badge--blue-cumulus' },
+    EN_ATTENTE: { label: 'En attente de validation', classe: 'fr-badge--warning' },
+    VALIDEE:    { label: 'Validée',              classe: 'fr-badge--success' },
+    REJETEE:    { label: 'Rejetée',              classe: 'fr-badge--error' },
+  }
+  return map[statut] ?? { label: statut, classe: '' }
 }
 </script>
 
@@ -203,7 +238,104 @@ function nomAuteur(ressource: Record<string, any>) {
         </div>
       </div>
 
-      <!-- Résultats -->
+      <!-- Bloc Mes Ressources (utilisateur connecté seulement) -->
+      <section v-if="userId" aria-labelledby="titre-mes-ressources" class="fr-mb-6w">
+        <div class="fr-grid-row fr-grid-row--middle fr-mb-3w">
+          <div class="fr-col">
+            <h2 id="titre-mes-ressources" class="fr-h4 fr-mb-0">
+              <span class="fr-icon-user-line fr-mr-1w" aria-hidden="true"></span>
+              Mes ressources
+              <span class="fr-badge fr-badge--blue-cumulus fr-ml-1w">{{ mesRessourcesFiltrees.length }}</span>
+            </h2>
+          </div>
+          <div class="fr-col-auto">
+            <NuxtLink to="/ajouter-ressource" class="fr-btn fr-btn--sm fr-btn--secondary fr-btn--icon-left fr-icon-add-circle-line">
+              Ajouter
+            </NuxtLink>
+          </div>
+        </div>
+
+        <div v-if="mesRessourcesFiltrees.length === 0" class="fr-alert fr-alert--info">
+          <h3 class="fr-alert__title">Aucune ressource</h3>
+          <p>Vous n'avez pas encore créé de ressource correspondant aux filtres sélectionnés.</p>
+        </div>
+
+        <div v-else class="fr-grid-row fr-grid-row--gutters">
+          <div
+            v-for="ressource in mesRessourcesFiltrees"
+            :key="ressource.idRessource"
+            class="fr-col-12 fr-col-md-6 fr-col-lg-4"
+          >
+            <div class="fr-card rr-resource-card">
+              <div class="fr-card__body">
+                <div class="fr-card__content">
+                  <!-- Statut -->
+                  <div class="fr-mb-1w">
+                    <p :class="['fr-badge', 'fr-badge--sm', badgeStatut(ressource.statut).classe]">
+                      {{ badgeStatut(ressource.statut).label }}
+                    </p>
+                  </div>
+
+                  <!-- Icône + Type -->
+                  <div class="rr-card-type fr-mb-1w">
+                    <span :class="[iconType(ressource.typeRessource), 'fr-mr-1w']" aria-hidden="true"></span>
+                    <span class="fr-text--sm fr-text--grey">{{ labelType(ressource.typeRessource) }}</span>
+                  </div>
+
+                  <!-- Titre -->
+                  <h3 class="fr-card__title fr-mb-1w">
+                    <NuxtLink :to="`/ressources/${ressource.idRessource}`" class="fr-card__link">
+                      {{ ressource.titre }}
+                    </NuxtLink>
+                  </h3>
+
+                  <!-- Description -->
+                  <p class="fr-card__desc fr-text--sm rr-card-desc">
+                    {{ ressource.description || 'Aucune description.' }}
+                  </p>
+
+                  <!-- Tags -->
+                  <div class="fr-tags-group fr-mb-2w">
+                    <p v-if="ressource.categorie" class="fr-tag fr-tag--sm">{{ ressource.categorie.nom }}</p>
+                    <p class="fr-tag fr-tag--sm">{{ labelType(ressource.typeRessource) }}</p>
+                  </div>
+
+                  <!-- Date -->
+                  <div class="rr-card-meta fr-text--sm fr-text--grey">
+                    <span class="fr-icon-calendar-line fr-icon--sm fr-mr-1v" aria-hidden="true"></span>
+                    {{ formatDate(ressource.dateCreation) }}
+                  </div>
+                </div>
+
+                <div class="fr-card__footer rr-card-footer">
+                  <ul class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-btns-group--icon-left">
+                    <li>
+                      <NuxtLink
+                        :to="`/ressources/${ressource.idRessource}`"
+                        class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-left fr-icon-eye-line"
+                      >
+                        Voir
+                      </NuxtLink>
+                    </li>
+                    <li>
+                      <NuxtLink
+                        :to="`/modifier-ressource/${ressource.idRessource}`"
+                        class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-left fr-icon-edit-line"
+                      >
+                        Modifier
+                      </NuxtLink>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr v-if="userId" class="fr-hr fr-mb-5w" />
+
+      <!-- Toutes les ressources -->
       <section aria-labelledby="titre-ressources">
         <div class="fr-grid-row fr-grid-row--middle fr-mb-3w">
           <div class="fr-col">
