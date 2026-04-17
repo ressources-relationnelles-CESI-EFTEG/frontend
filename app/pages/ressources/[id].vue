@@ -13,7 +13,17 @@ const normalizedRole = computed(() =>
 const isModo = computed(() =>
   ['moderateur', 'administrateur', 'super_admin'].includes(normalizedRole.value),
 )
-const userId = computed(() => (_auth.user?.value?.id ?? null) as number | null)
+const userId = computed<number | null>(() => {
+  if (!authToken.value) return null
+  try {
+    const payloadB64 = authToken.value.split('.')[0]
+    const payload = atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'))
+    const id = Number(payload.split(':')[0])
+    return Number.isInteger(id) && id > 0 ? id : null
+  } catch {
+    return null
+  }
+})
 const isLoggedIn = computed(() => !!authToken.value && !!userId.value)
 
 // --- Commentaires ---
@@ -94,6 +104,64 @@ async function supprimerCommentaire(id: number) {
 
 function toggleReponse(id: number) {
   reponseOuverte.value = reponseOuverte.value === id ? null : id
+}
+
+// --- Signalements ---
+const signalRessourceOuvert = ref(false)
+const signalCommentaireOuvert = ref<number | null>(null)
+const motifSignalRessource = ref('')
+const motifSignalCommentaire = ref<Record<number, string>>({})
+const signalSucces = ref('')
+const signalErreur = ref('')
+
+async function signalerRessource() {
+  const motif = motifSignalRessource.value.trim()
+  if (!motif || !userId.value) return
+  try {
+    await $fetch('/signalements', {
+      baseURL: apiBase,
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken.value}` },
+      body: {
+        idUtilisateur: userId.value,
+        typeSignalement: 'RESSOURCE',
+        idRessource: Number(route.params.id),
+        motif,
+      },
+    })
+    signalRessourceOuvert.value = false
+    motifSignalRessource.value = ''
+    signalSucces.value = 'Ressource signalée. Un modérateur va examiner votre signalement.'
+    setTimeout(() => (signalSucces.value = ''), 5000)
+  } catch {
+    signalErreur.value = 'Impossible d\'envoyer le signalement.'
+    setTimeout(() => (signalErreur.value = ''), 3000)
+  }
+}
+
+async function signalerCommentaire(idCommentaire: number) {
+  const motif = motifSignalCommentaire.value[idCommentaire]?.trim()
+  if (!motif || !userId.value) return
+  try {
+    await $fetch('/signalements', {
+      baseURL: apiBase,
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken.value}` },
+      body: {
+        idUtilisateur: userId.value,
+        typeSignalement: 'COMMENTAIRE',
+        idCommentaire,
+        motif,
+      },
+    })
+    signalCommentaireOuvert.value = null
+    motifSignalCommentaire.value[idCommentaire] = ''
+    signalSucces.value = 'Commentaire signalé. Un modérateur va examiner votre signalement.'
+    setTimeout(() => (signalSucces.value = ''), 5000)
+  } catch {
+    signalErreur.value = 'Impossible d\'envoyer le signalement.'
+    setTimeout(() => (signalErreur.value = ''), 3000)
+  }
 }
 
 // --- Provenance (pour le bouton retour) ---
@@ -344,11 +412,64 @@ function badgeStatut(statut: string) {
             <div class="rr-contenu">{{ ressource.contenu }}</div>
           </div>
 
-          <!-- Navigation retour -->
+          <!-- Navigation retour + Signaler -->
           <div class="fr-btns-group fr-btns-group--inline fr-mt-2w">
             <NuxtLink :to="retourHref" class="fr-btn fr-btn--secondary fr-btn--icon-left fr-icon-arrow-left-line">
               {{ retourLabel }}
             </NuxtLink>
+            <button
+              v-if="isLoggedIn && userId !== ressource.idUtilisateur"
+              type="button"
+              class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-left fr-icon-flag-line"
+              @click="signalRessourceOuvert = !signalRessourceOuvert"
+            >
+              Signaler
+            </button>
+          </div>
+
+          <!-- Feedback signalement -->
+          <div v-if="signalSucces" class="fr-alert fr-alert--success fr-alert--sm fr-mt-2w" role="alert">
+            <p>{{ signalSucces }}</p>
+          </div>
+          <div v-if="signalErreur" class="fr-alert fr-alert--error fr-alert--sm fr-mt-2w" role="alert">
+            <p>{{ signalErreur }}</p>
+          </div>
+
+          <!-- Formulaire signalement ressource -->
+          <div v-if="signalRessourceOuvert" class="rr-signal-form fr-mt-2w fr-p-3w">
+            <h3 class="fr-text--bold fr-mb-1w fr-text--sm">
+              <span class="fr-icon-flag-line fr-mr-1w" aria-hidden="true"></span>
+              Signaler cette ressource
+            </h3>
+            <div class="fr-input-group">
+              <label class="fr-label fr-text--sm" for="motif-signal-ressource">
+                Motif du signalement <span aria-hidden="true">*</span>
+              </label>
+              <textarea
+                id="motif-signal-ressource"
+                v-model="motifSignalRessource"
+                class="fr-input"
+                rows="2"
+                placeholder="Décrivez le problème…"
+              ></textarea>
+            </div>
+            <div class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-mt-1w">
+              <button
+                type="button"
+                class="fr-btn fr-btn--sm"
+                :disabled="!motifSignalRessource.trim()"
+                @click="signalerRessource"
+              >
+                Envoyer
+              </button>
+              <button
+                type="button"
+                class="fr-btn fr-btn--secondary fr-btn--sm"
+                @click="signalRessourceOuvert = false; motifSignalRessource = ''"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
 
           <!-- Bloc modération (visible seulement pour les modérateurs) -->
@@ -540,8 +661,48 @@ function badgeStatut(statut: string) {
                 title="Supprimer ce commentaire"
                 @click="supprimerCommentaire(com.idCommentaire)"
               ></button>
+              <button
+                v-if="isLoggedIn && userId !== com.idUtilisateur"
+                type="button"
+                class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-only fr-icon-flag-line rr-btn-signal"
+                :title="signalCommentaireOuvert === com.idCommentaire ? 'Annuler le signalement' : 'Signaler ce commentaire'"
+                @click="signalCommentaireOuvert = signalCommentaireOuvert === com.idCommentaire ? null : com.idCommentaire"
+              ></button>
             </div>
             <p class="rr-comment-body">{{ com.contenu }}</p>
+
+            <!-- Formulaire signalement commentaire -->
+            <div v-if="signalCommentaireOuvert === com.idCommentaire" class="rr-signal-form fr-mt-2w fr-p-2w">
+              <div class="fr-input-group">
+                <label class="fr-label fr-text--sm" :for="`motif-signal-com-${com.idCommentaire}`">
+                  Motif du signalement <span aria-hidden="true">*</span>
+                </label>
+                <textarea
+                  :id="`motif-signal-com-${com.idCommentaire}`"
+                  v-model="motifSignalCommentaire[com.idCommentaire]"
+                  class="fr-input"
+                  rows="2"
+                  placeholder="Décrivez le problème…"
+                ></textarea>
+              </div>
+              <div class="fr-btns-group fr-btns-group--inline fr-btns-group--sm fr-mt-1w">
+                <button
+                  type="button"
+                  class="fr-btn fr-btn--sm"
+                  :disabled="!motifSignalCommentaire[com.idCommentaire]?.trim()"
+                  @click="signalerCommentaire(com.idCommentaire)"
+                >
+                  Envoyer
+                </button>
+                <button
+                  type="button"
+                  class="fr-btn fr-btn--secondary fr-btn--sm"
+                  @click="signalCommentaireOuvert = null"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
 
             <!-- Réponses imbriquées -->
             <div v-if="com.reponses?.length" class="rr-replies fr-mt-2w">
@@ -744,6 +905,17 @@ function badgeStatut(statut: string) {
 .rr-btn-delete {
   color: var(--text-default-error) !important;
   margin-left: 0.25rem;
+}
+
+.rr-btn-signal {
+  color: var(--text-mention-grey) !important;
+  margin-left: 0.25rem;
+}
+
+.rr-signal-form {
+  background: var(--background-alt-grey);
+  border: 1px solid var(--border-default-grey);
+  border-left: 3px solid var(--border-default-warning);
 }
 
 .rr-comment-body {

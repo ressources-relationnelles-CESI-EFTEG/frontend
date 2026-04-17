@@ -185,6 +185,21 @@ async function traiterSignalement(statut: 'TRAITE' | 'IGNORE') {
 }
 
 // ---------------------------------------------------------------------------
+// Détection conversation signalée
+// ---------------------------------------------------------------------------
+interface ConvInfo { conversationId: number; interlocuteur: string; justification: string }
+
+function parseConversation(motif: string): ConvInfo | null {
+  const m = motif.match(/^\[Conversation #(\d+)\s*[–\-]\s*(.+?)\]\s*([\s\S]*)$/)
+  if (!m) return null
+  return { conversationId: Number(m[1]), interlocuteur: m[2].trim(), justification: m[3].trim() }
+}
+
+const convInfo = computed<ConvInfo | null>(() =>
+  signalement.value ? parseConversation(signalement.value.motif) : null,
+)
+
+// ---------------------------------------------------------------------------
 // Utilitaires
 // ---------------------------------------------------------------------------
 function formatDate(d: string) {
@@ -272,9 +287,45 @@ function labelStatut(statut: string) {
           </div>
 
           <!-- ===================================================
+               Bloc cible : Conversation signalée
+               =================================================== -->
+          <template v-if="convInfo">
+            <h2 class="fr-h5 fr-mb-3w">
+              <span class="fr-icon-chat-3-line fr-mr-1w" aria-hidden="true"></span>
+              Conversation signalée
+            </h2>
+
+            <div class="fr-p-4w rr-cible-block fr-mb-4w">
+              <dl class="rr-meta-list">
+                <div class="rr-meta-row">
+                  <dt>N° conversation</dt>
+                  <dd>#{{ convInfo.conversationId }}</dd>
+                </div>
+                <div class="rr-meta-row">
+                  <dt>Signalé par</dt>
+                  <dd>{{ nomUtilisateur(signalement.utilisateur) }}</dd>
+                </div>
+                <div class="rr-meta-row">
+                  <dt>Personne signalée</dt>
+                  <dd>{{ convInfo.interlocuteur }}</dd>
+                </div>
+                <div class="rr-meta-row">
+                  <dt>Date du signalement</dt>
+                  <dd>{{ formatDate(signalement.dateCreation) }}</dd>
+                </div>
+              </dl>
+
+              <hr class="fr-hr fr-my-3w" />
+
+              <p class="fr-text--bold fr-text--sm fr-mb-1w">Justification :</p>
+              <p class="rr-contenu fr-mb-0">{{ convInfo.justification || '—' }}</p>
+            </div>
+          </template>
+
+          <!-- ===================================================
                Bloc cible : Commentaire
                =================================================== -->
-          <template v-if="signalement.typeSignalement === 'COMMENTAIRE'">
+          <template v-else-if="signalement.typeSignalement === 'COMMENTAIRE'">
             <h2 class="fr-h5 fr-mb-3w">
               <span class="fr-icon-chat-3-line fr-mr-1w" aria-hidden="true"></span>
               Commentaire signalé
@@ -322,7 +373,7 @@ function labelStatut(statut: string) {
           <!-- ===================================================
                Bloc cible : Ressource
                =================================================== -->
-          <template v-else-if="signalement.typeSignalement === 'RESSOURCE'">
+          <template v-else-if="!convInfo && signalement.typeSignalement === 'RESSOURCE'">
             <h2 class="fr-h5 fr-mb-3w">
               <span class="fr-icon-file-line fr-mr-1w" aria-hidden="true"></span>
               Ressource signalée
@@ -484,7 +535,7 @@ function labelStatut(statut: string) {
               </div>
               <div class="rr-meta-row">
                 <dt>Type</dt>
-                <dd>{{ signalement.typeSignalement === 'COMMENTAIRE' ? 'Commentaire' : 'Ressource' }}</dd>
+                <dd>{{ convInfo ? 'Conversation' : signalement.typeSignalement === 'COMMENTAIRE' ? 'Commentaire' : 'Ressource' }}</dd>
               </div>
               <div class="rr-meta-row">
                 <dt>Signalé par</dt>
@@ -511,7 +562,7 @@ function labelStatut(statut: string) {
             <hr class="fr-hr fr-my-2w" />
 
             <h2 class="fr-h6 fr-mb-1w">Motif du signalement</h2>
-            <p class="fr-text--sm">{{ signalement.motif }}</p>
+            <p class="fr-text--sm">{{ convInfo ? convInfo.justification || '—' : signalement.motif }}</p>
           </aside>
         </div>
 

@@ -18,6 +18,7 @@ const authHeaders = computed(() =>
 // ---------------------------------------------------------------------------
 type StatutSignalement = 'EN_ATTENTE' | 'TRAITE' | 'IGNORE'
 type TypeSignalement = 'RESSOURCE' | 'COMMENTAIRE'
+type FiltrePseudoType = '' | 'RESSOURCE' | 'COMMENTAIRE' | 'CONVERSATION'
 
 interface Signalement {
   idSignalement: number
@@ -55,12 +56,18 @@ const onglet = ref<'signalements' | 'ressources'>('signalements')
 const isLoadingSignalements = ref(true)
 const signalements = ref<Signalement[]>([])
 const filtreStatut = ref<'' | StatutSignalement>('')
-const filtreType = ref<'' | TypeSignalement>('')
+const filtreType = ref<FiltrePseudoType>('')
+
+function estConversation(s: Signalement) {
+  return s.motif.startsWith('[Conversation #')
+}
 
 const signalementsFiltres = computed(() =>
   signalements.value.filter((s) => {
     if (filtreStatut.value && s.statut !== filtreStatut.value) return false
-    if (filtreType.value && s.typeSignalement !== filtreType.value) return false
+    if (filtreType.value === 'CONVERSATION') return estConversation(s)
+    if (filtreType.value === 'COMMENTAIRE') return s.typeSignalement === 'COMMENTAIRE' && !estConversation(s)
+    if (filtreType.value === 'RESSOURCE') return s.typeSignalement === 'RESSOURCE'
     return true
   }),
 )
@@ -223,8 +230,14 @@ function labelStatut(statut: string) {
   return map[statut] ?? statut
 }
 
-function labelType(type: string) {
-  return type === 'COMMENTAIRE' ? 'Commentaire' : 'Ressource'
+function labelType(s: Signalement) {
+  if (estConversation(s)) return 'Conversation'
+  return s.typeSignalement === 'COMMENTAIRE' ? 'Commentaire' : 'Ressource'
+}
+
+function iconType(s: Signalement) {
+  if (estConversation(s)) return 'fr-icon-chat-3-line'
+  return s.typeSignalement === 'COMMENTAIRE' ? 'fr-icon-chat-3-line' : 'fr-icon-file-line'
 }
 
 function labelTypeRessource(type: string) {
@@ -349,6 +362,7 @@ function labelTypeRessource(type: string) {
                   <option value="">Tous</option>
                   <option value="RESSOURCE">Ressource</option>
                   <option value="COMMENTAIRE">Commentaire</option>
+                  <option value="CONVERSATION">Conversation</option>
                 </select>
               </div>
             </div>
@@ -378,12 +392,8 @@ function labelTypeRessource(type: string) {
                 <tr v-for="s in signalementsFiltres" :key="s.idSignalement">
                   <td>{{ formatDate(s.dateCreation) }}</td>
                   <td>
-                    <span
-                      :class="s.typeSignalement === 'COMMENTAIRE' ? 'fr-icon-chat-3-line' : 'fr-icon-file-line'"
-                      class="fr-icon--sm fr-mr-1v"
-                      aria-hidden="true"
-                    ></span>
-                    {{ labelType(s.typeSignalement) }}
+                    <span :class="[iconType(s), 'fr-icon--sm', 'fr-mr-1v']" aria-hidden="true"></span>
+                    {{ labelType(s) }}
                   </td>
                   <td class="rr-motif-cell">{{ s.motif }}</td>
                   <td>{{ nomUtilisateur(s.utilisateur) }}</td>

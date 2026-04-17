@@ -82,7 +82,8 @@ async function fetchCategories() {
       headers: { Authorization: `Bearer ${authToken.value}` },
     })
     categories.value = data
-  } catch {
+  } catch (err: any) {
+    console.error('[categories] erreur:', err?.data ?? err?.message ?? err)
     categories.value = []
   }
 }

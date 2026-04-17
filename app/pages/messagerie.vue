@@ -10,7 +10,15 @@ const user = _auth.user as Ref<any>
 const authToken = computed<string | null>(() =>
   (_auth.authToken?.value ?? _auth.token?.value) ?? null,
 )
-const userId = computed(() => (user.value as any)?.id ?? (user.value as any)?.idUtilisateur ?? null)
+const userId = computed<number | null>(() => {
+  if (!authToken.value) return null
+  try {
+    const payloadB64 = authToken.value.split('.')[0]
+    const payload = atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'))
+    const id = Number(payload.split(':')[0])
+    return Number.isInteger(id) && id > 0 ? id : null
+  } catch { return null }
+})
 
 // ---------------------------------------------------------------------------
 // Types
@@ -243,7 +251,7 @@ async function envoyerMessage() {
       {
         baseURL: apiBase, method: 'POST',
         headers: { Authorization: `Bearer ${authToken.value}` },
-        body: { idUtilisateur: userId.value as number, contenu: texte },
+        body: { contenu: texte },
       },
     )
     const idx = messages.value.findIndex((m) => m.idMessage === optimiste.idMessage)
@@ -260,6 +268,95 @@ async function envoyerMessage() {
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyerMessage() }
+}
+
+// ---------------------------------------------------------------------------
+// Menu actions (dropdown "...")
+// ---------------------------------------------------------------------------
+const menuActionsOuvert = ref(false)
+const showSignalModal = ref(false)
+const motifSignal = ref('')
+const signalSucces = ref(false)
+const signalErreur = ref('')
+const isSendingSignal = ref(false)
+const isDeletingConv = ref(false)
+
+function toggleMenuActions() { menuActionsOuvert.value = !menuActionsOuvert.value }
+function fermerMenuActions() { menuActionsOuvert.value = false }
+
+async function supprimerConversation() {
+  if (!conversationActive.value) return
+  if (!confirm(`Quitter et supprimer la conversation avec ${conversationActive.value.interlocuteur.prenom} ${conversationActive.value.interlocuteur.nom} ?`)) return
+  isDeletingConv.value = true
+  fermerMenuActions()
+  try {
+    await $fetch(`/messagerie/conversations/${conversationActive.value.idConversation}`, {
+      baseURL: apiBase,
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken.value}` },
+    })
+    conversations.value = conversations.value.filter(
+      (c) => c.idConversation !== conversationActive.value?.idConversation,
+    )
+    conversationActive.value = null
+    messages.value = []
+  } catch {
+    // erreur silencieuse
+  } finally {
+    isDeletingConv.value = false
+  }
+}
+
+function ouvrirSignalModal() {
+  fermerMenuActions()
+  motifSignal.value = ''
+  signalSucces.value = false
+  signalErreur.value = ''
+  showSignalModal.value = true
+}
+
+async function envoyerSignal() {
+  const motif = motifSignal.value.trim()
+  if (!motif || !userId.value || !conversationActive.value) return
+  isSendingSignal.value = true
+  try {
+    await $fetch('/signalements', {
+      baseURL: apiBase,
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken.value}` },
+      body: {
+        idUtilisateur: userId.value,
+        typeSignalement: 'COMMENTAIRE',
+        motif: `[Conversation #${conversationActive.value.idConversation} – ${conversationActive.value.interlocuteur.prenom} ${conversationActive.value.interlocuteur.nom}] ${motif}`,
+      },
+    })
+    signalSucces.value = true
+    motifSignal.value = ''
+    setTimeout(() => { showSignalModal.value = false; signalSucces.value = false }, 2500)
+  } catch {
+    signalErreur.value = 'Impossible d\'envoyer le signalement.'
+  } finally {
+    isSendingSignal.value = false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Suppression d'un message (clic sur son propre message)
+// ---------------------------------------------------------------------------
+const messageMenuId = ref<number | null>(null)
+
+async function supprimerMessage(idMessage: number) {
+  try {
+    await $fetch(`/messagerie/messages/${idMessage}`, {
+      baseURL: apiBase,
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken.value}` },
+    })
+    messages.value = messages.value.filter((m) => m.idMessage !== idMessage)
+    messageMenuId.value = null
+  } catch {
+    messageMenuId.value = null
+  }
 }
 
 function scrollToBottom() {
@@ -536,13 +633,39 @@ onMounted(async () => {
               </p>
             </div>
           </div>
-          <div class="rr-chat-header__actions">
-            <button type="button" class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-only rr-icon-btn" title="Appel vidéo" aria-label="Démarrer un appel vidéo">
-              <span class="fr-icon-video-line" aria-hidden="true"></span>
+          <div class="rr-chat-header__actions" style="position:relative;">
+            <button
+              type="button"
+              class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-only rr-icon-btn"
+              title="Supprimer la conversation"
+              aria-label="Supprimer la conversation"
+              :disabled="isDeletingConv"
+              @click="supprimerConversation"
+            >
+              <span class="fr-icon-delete-line" aria-hidden="true"></span>
             </button>
-            <button type="button" class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-only rr-icon-btn" title="Plus d'options" aria-label="Plus d'options">
-              <span class="fr-icon-more-line" aria-hidden="true"></span>
-            </button>
+            <div style="position:relative;">
+              <button
+                type="button"
+                class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-only rr-icon-btn"
+                title="Plus d'options"
+                aria-label="Plus d'options"
+                @click="toggleMenuActions"
+              >
+                <span class="fr-icon-more-line" aria-hidden="true"></span>
+              </button>
+              <div v-if="menuActionsOuvert" class="rr-dropdown-menu" role="menu">
+                <button type="button" class="rr-dropdown-item rr-dropdown-item--danger" role="menuitem" @click="supprimerConversation">
+                  <span class="fr-icon-delete-line fr-mr-1v" aria-hidden="true"></span>
+                  Supprimer la conversation
+                </button>
+                <button type="button" class="rr-dropdown-item" role="menuitem" @click="ouvrirSignalModal">
+                  <span class="fr-icon-flag-line fr-mr-1v" aria-hidden="true"></span>
+                  Signaler la conversation
+                </button>
+              </div>
+            </div>
+            <div v-if="menuActionsOuvert" class="rr-dropdown-backdrop" @click="fermerMenuActions"></div>
           </div>
         </header>
 
@@ -570,8 +693,22 @@ onMounted(async () => {
                   <img v-if="conversationActive.interlocuteur.photoProfil" :src="`${apiBase}${conversationActive.interlocuteur.photoProfil}`" alt="" />
                   <span v-else class="rr-avatar__initiales rr-avatar__initiales--sm">{{ initiales(conversationActive.interlocuteur.prenom, conversationActive.interlocuteur.nom) }}</span>
                 </div>
-                <div class="rr-bubble-wrapper">
-                  <div class="rr-bubble" :class="estMien(msg) ? 'rr-bubble--moi' : 'rr-bubble--autre'">{{ msg.contenu }}</div>
+                <div class="rr-bubble-wrapper" :class="{ 'rr-bubble-wrapper--interactive': estMien(msg) }">
+                  <div
+                    class="rr-bubble"
+                    :class="[estMien(msg) ? 'rr-bubble--moi' : 'rr-bubble--autre', { 'rr-bubble--selected': messageMenuId === msg.idMessage }]"
+                    @click="estMien(msg) ? (messageMenuId = messageMenuId === msg.idMessage ? null : msg.idMessage) : null"
+                  >{{ msg.contenu }}</div>
+                  <div v-if="estMien(msg) && messageMenuId === msg.idMessage" class="rr-msg-actions">
+                    <button
+                      type="button"
+                      class="rr-msg-delete-btn"
+                      @click.stop="supprimerMessage(msg.idMessage)"
+                    >
+                      <span class="fr-icon-delete-line fr-mr-1v" aria-hidden="true"></span>
+                      Supprimer
+                    </button>
+                  </div>
                   <p class="rr-bubble-time fr-text--sm">
                     {{ formatHeure(msg.dateEnvoi) }}
                     <span v-if="estMien(msg)" class="fr-ml-1v" :class="msg.lu ? 'fr-icon-check-double-line rr-lu' : 'fr-icon-check-line rr-envoye'" :aria-label="msg.lu ? 'Lu' : 'Envoyé'" aria-hidden="false"></span>
@@ -595,6 +732,59 @@ onMounted(async () => {
         </footer>
       </template>
     </main>
+  </div>
+
+  <!-- Modal signalement conversation -->
+  <div v-if="showSignalModal" class="rr-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="signal-title" @click.self="showSignalModal = false">
+    <div class="rr-modal">
+      <div class="rr-modal__header">
+        <h2 id="signal-title" class="fr-h5 fr-mb-0">
+          <span class="fr-icon-flag-line fr-mr-1w" aria-hidden="true"></span>
+          Signaler la conversation
+        </h2>
+        <button type="button" class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-only" aria-label="Fermer" @click="showSignalModal = false">
+          <span class="fr-icon-close-line" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div class="rr-modal__body">
+        <div v-if="signalSucces" class="fr-alert fr-alert--success fr-alert--sm">
+          <p>Signalement envoyé. Un modérateur va examiner votre demande.</p>
+        </div>
+        <template v-else>
+          <p class="fr-text--sm fr-text--grey fr-mb-3w">
+            Décrivez le motif du signalement. Un modérateur examinera votre demande.
+          </p>
+          <div class="fr-input-group" :class="{ 'fr-input-group--error': !!signalErreur }">
+            <label class="fr-label" for="motif-signal">
+              Motif <span class="fr-text--grey">(obligatoire)</span>
+            </label>
+            <textarea
+              id="motif-signal"
+              v-model="motifSignal"
+              class="fr-input"
+              rows="4"
+              placeholder="Décrivez le problème…"
+              :disabled="isSendingSignal"
+            ></textarea>
+            <p v-if="signalErreur" class="fr-error-text">{{ signalErreur }}</p>
+          </div>
+          <div class="fr-btns-group fr-btns-group--inline fr-mt-3w">
+            <button
+              type="button"
+              class="fr-btn fr-btn--sm"
+              :disabled="!motifSignal.trim() || isSendingSignal"
+              @click="envoyerSignal"
+            >
+              {{ isSendingSignal ? 'Envoi…' : 'Envoyer le signalement' }}
+            </button>
+            <button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" @click="showSignalModal = false">
+              Annuler
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -837,6 +1027,92 @@ onMounted(async () => {
 .rr-send-btn--active { background: var(--blue-france-sun-113-625); color: #fff; }
 .rr-send-btn--active:hover { background: var(--blue-france-850-200); transform: scale(1.05); }
 .rr-send-btn:disabled:not(.rr-send-btn--active) { cursor: default; opacity: 0.5; }
+
+/* Dropdown menu */
+.rr-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--background-default-grey);
+  border: 1px solid var(--border-default-grey);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  min-width: 210px;
+  z-index: 100;
+  overflow: hidden;
+}
+.rr-dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+.rr-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-label-grey);
+  text-align: left;
+  transition: background 0.12s;
+}
+.rr-dropdown-item:hover { background: var(--background-alt-grey); }
+.rr-dropdown-item--danger { color: var(--error-425-625); }
+.rr-dropdown-item--danger:hover { background: #fff0f0; }
+
+/* Message suppression */
+.rr-bubble--selected { opacity: 0.85; }
+.rr-msg-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+.rr-msg-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--error-425-625);
+  background: none;
+  border: 1px solid var(--error-425-625);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.rr-msg-delete-btn:hover { background: #fff0f0; }
+
+/* Modal signalement */
+.rr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.rr-modal {
+  background: var(--background-default-grey);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  overflow: hidden;
+}
+.rr-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--border-default-grey);
+}
+.rr-modal__body { padding: 1.5rem; }
 
 /* Spinner */
 .rr-spin { animation: spin 1s linear infinite; }
