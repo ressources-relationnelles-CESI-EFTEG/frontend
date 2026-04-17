@@ -98,7 +98,7 @@ async function searchUsers() {
   isSearchingUsers.value = true
   try {
     const data = await $fetch<Utilisateur[]>(
-      `/utilisateurs?search=${encodeURIComponent(rechercheUtilisateur.value.trim())}`,
+      `/utilisateurs/search?q=${encodeURIComponent(rechercheUtilisateur.value.trim())}`,
       { baseURL: apiBase, headers: { Authorization: `Bearer ${authToken.value}` } },
     )
     resultatsUtilisateurs.value = data.filter((u) => u.idUtilisateur !== userId.value)
