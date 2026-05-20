@@ -57,12 +57,33 @@ useHead({
         </section>
 
         <section class="fr-mb-5w">
+          <h2 class="fr-h4">Où retrouver mes ressources ?</h2>
+          <p>
+            Une fois connecté, vous pouvez consulter vos contenus depuis la page
+            <NuxtLink class="fr-link" to="/ressources">Mes ressources</NuxtLink>.
+          </p>
+        </section>
+
+        <section class="fr-mb-5w">
           <h2 class="fr-h4">Que faire en cas de problème ?</h2>
           <p>
             Utilisez la page
             <NuxtLink class="fr-link" to="/contact">Contactez-nous</NuxtLink>.
           </p>
         </section>
+      </div>
+
+      <div class="fr-col-12 fr-col-lg-4">
+        <aside class="fr-p-3w" aria-label="Accès rapides">
+          <h2 class="fr-h4">Accès rapides</h2>
+          <ul class="fr-text--sm fr-mb-0">
+            <li><NuxtLink class="fr-link" to="/connexion">Connexion</NuxtLink></li>
+            <li><NuxtLink class="fr-link" to="/inscription">Inscription</NuxtLink></li>
+            <li><NuxtLink class="fr-link" to="/ressources">Mes ressources</NuxtLink></li>
+            <li><NuxtLink class="fr-link" to="/contact">Contactez-nous</NuxtLink></li>
+            <li><NuxtLink class="fr-link" to="/accessibilite">Accessibilité</NuxtLink></li>
+          </ul>
+        </aside>
       </div>
     </div>
   </main>
