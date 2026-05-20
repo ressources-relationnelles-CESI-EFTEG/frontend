@@ -1,123 +1,102 @@
-# Nuxt Minimal Starter
+# Ressources Relationnelles — Frontend
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Application web Nuxt 4 de la plateforme **Ressources (Re)lationnelles**. Permet aux citoyens de partager et consulter des ressources liées aux relations (famille, couple, amitié, professionnel, communautaire), d'échanger via une messagerie interne, et aux modérateurs / administrateurs de piloter la plateforme depuis un back-office. Design System de l'État Français (DSFR).
 
-## Setup
+## Prérequis
 
-Make sure to install dependencies:
+- Node.js ≥ 20, npm ≥ 10
+- Backend Ressources Relationnelles démarré sur le port 3001
+
+## Installation
 
 ```bash
-# npm
 npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
+cp .env.example .env
+# Éditer .env
 ```
 
-## DSFR Installation
+### Variables d'environnement (`.env`)
 
-Install the official French government Design System (DSFR):
+```
+NUXT_PUBLIC_API_BASE=http://localhost:3001
+```
+
+## Démarrage
 
 ```bash
-# npm
-npm install @gouvfr/dsfr
-
-# pnpm
-pnpm add @gouvfr/dsfr
-
-# yarn
-yarn add @gouvfr/dsfr
-
-# bun
-bun add @gouvfr/dsfr
+npm run dev             # Mode développement — http://localhost:3000
+npm run build           # Compiler pour la production
+npm run preview         # Prévisualiser le build de production
 ```
 
-Copy DSFR assets to the public folder:
+## Tests
 
 ```bash
-# npm
-npx cpy "node_modules/@gouvfr/dsfr/dist/**/*" public/dsfr
-
-# pnpm
-pnpm dlx cpy-cli "node_modules/@gouvfr/dsfr/dist/**/*" public/dsfr
-
-# yarn
-yarn dlx cpy-cli "node_modules/@gouvfr/dsfr/dist/**/*" public/dsfr
+npm run test:unit       # Tests unitaires Vitest
+npm run test:unit:run   # Une seule exécution (CI)
+npm run test:e2e        # Tests E2E Playwright
+npm run test:e2e:ui     # Mode UI interactif
+npm run test            # Unit + E2E
 ```
 
-Make sure the following files are loaded in `nuxt.config.ts`:
+## Pages disponibles
 
-```ts
-app: {
-  head: {
-    link: [
-      { rel: 'stylesheet', href: '/dsfr/dsfr/dsfr.min.css' },
-      { rel: 'stylesheet', href: '/dsfr/utility/utility.min.css' },
-      { rel: 'stylesheet', href: '/dsfr/utility/icons/icons.min.css' }
-    ],
-    script: [
-      { src: '/dsfr/dsfr/dsfr.module.min.js', type: 'module' }
-    ]
-  }
-}
+| Route | Accès | Description |
+|-------|-------|-------------|
+| `/` | Public | Page d'accueil |
+| `/presentation` | Public | Présentation de la plateforme |
+| `/connexion` | Public | Connexion |
+| `/inscription` | Public | Inscription |
+| `/sign-up` | Public | Inscription (variante) |
+| `/accueil` | Authentifié | Accueil connecté |
+| `/home` | Authentifié | Accueil alternatif |
+| `/tableau-de-bord` | Authentifié | Tableau de bord personnel |
+| `/ressources` | Authentifié | Liste des ressources |
+| `/ressources/:id` | Authentifié | Détail d'une ressource + commentaires |
+| `/ajouter-ressource` | Authentifié | Créer une ressource |
+| `/modifier-ressource/:id` | Authentifié | Modifier une ressource |
+| `/messagerie` | Authentifié | Conversations et messages privés |
+| `/mon-compte` | Authentifié | Gestion du compte et du profil |
+| `/profile` | Authentifié | Profil public |
+| `/emotion_tracker` | Authentifié | Journal d'émotions |
+| `/informations` | Public | Pages d'information |
+| `/moderateur` | Modérateur+ | Back-office de modération (ressources / commentaires / signalements) |
+| `/moderateur/:id` | Modérateur+ | Détail d'un élément à modérer |
+| `/admin` | Administrateur+ | Administration (utilisateurs, rôles, statuts) |
+| `/super-admin` | Super admin | Outils super administrateur |
+| `/aide` | Public | Aide |
+| `/accessibilite` | Public | Déclaration d'accessibilité |
+| `/contact` | Public | Contact |
+
+## Structure du projet
+
+```
+app/
+  pages/         Vues (routage automatique Nuxt)
+  components/    Composants réutilisables (DSFR)
+  composables/   useApi, useAuth — état et appels API côté client
+  services/      api-client, auth.service, utilisateur.service
+  middleware/    auth, moderateur, admin, super-admin (guards de route)
+  types/         Types TypeScript partagés
 ```
 
-## Development Server
+## Rôles et accès
 
-Start the development server on `http://localhost:3001`:
+| Rôle | Accès clé |
+|------|-----------|
+| Visiteur | Accueil, présentation, aide, contact |
+| `CITOYEN` | Ressources, messagerie, favoris, commentaires, signalements, progressions |
+| `MODERATEUR` | + back-office de modération |
+| `ADMINISTRATEUR` | + gestion des utilisateurs, rôles, statuts |
+| `SUPER_ADMIN` | + outils super admin |
 
-```bash
-# npm
-npm run dev
+## Comptes de démonstration
 
-# pnpm
-pnpm dev
+Tous les comptes utilisent le même mot de passe : **`Password123!`**
 
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+| Rôle | Email |
+|------|-------|
+| Super administrateur | superadmin@rr.local |
+| Administrateur | admin@rr.local |
+| Modérateur | moderateur@rr.local |
+| Citoyen | citoyen@rr.local |
