@@ -1,7 +1,10 @@
 {
   "name": "frontend",
+  "version": "0.0.1",
+  "description": "Application web Nuxt de la plateforme Ressources Relationnelles (DSFR)",
   "type": "module",
   "private": true,
+  "license": "etalab-2.0",
   "scripts": {
     "postinstall": "nuxt prepare",
     "dev": "nuxt dev",
