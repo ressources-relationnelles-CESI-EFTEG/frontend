@@ -156,7 +156,28 @@ runtimeConfig: {
 
 ## CI/CD
 
-Le workflow `.github/workflows/ci.yml` s'exécute automatiquement à chaque push sur les branches `main` et `develop`.
+### Stratégie GitFlow
+
+Le projet suit un GitFlow à **quatre branches d'intégration** :
+
+```
+feat/* | fix/* | chore/* | docs/*
+        │
+        ▼
+     develop ──► preprod ──► main
+```
+
+| Branche | Rôle | Déploiement |
+|---|---|---|
+| `develop` | Intégration des fonctionnalités terminées | Environnement de test / QA |
+| `preprod` | Stabilisation et validation finale avant production | Environnement de préproduction (déploiement automatique cible **roadmap V1.1**) |
+| `main` | Version stable de production, taguée par release | Environnement de production |
+
+Chaque fusion `develop → preprod` puis `preprod → main` passe par une pull request avec revue de code et validation des status checks.
+
+### Pipeline CI
+
+Le workflow `.github/workflows/ci.yml` s'exécute automatiquement à chaque push et pull request sur les branches `main`, `preprod` et `develop`.
 
 Étapes du pipeline :
 

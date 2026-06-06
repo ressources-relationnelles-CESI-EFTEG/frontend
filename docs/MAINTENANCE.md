@@ -106,8 +106,12 @@ Questions à se poser :
 
 ### Étape 3 — Correction
 
+Un hotfix urgent court-circuite le flux normal (`develop → preprod → main`) en branchant directement depuis `main`, puis se propage en aval pour garder les branches synchronisées.
+
 ```bash
-# 1. Créer une branche de correction
+# 1. Créer une branche de correction depuis main
+git checkout main
+git pull origin main
 git checkout -b hotfix/description-courte
 
 # 2. Appliquer le correctif
@@ -118,9 +122,14 @@ npm run build
 
 # 4. Pousser et ouvrir une Pull Request vers main
 git push origin hotfix/description-courte
+
+# 5. Une fois mergé sur main, propager en aval pour synchroniser
+#    preprod et develop avec le correctif :
+git checkout preprod && git pull && git merge --no-ff origin/main && git push
+git checkout develop && git pull && git merge --no-ff origin/preprod && git push
 ```
 
-Ne jamais pousser directement sur `main` sans pull request.
+Ne jamais pousser directement sur `main`, `preprod` ou `develop` sans pull request.
 
 ### Étape 4 — Post-mortem
 
