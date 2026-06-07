@@ -1,0 +1,36 @@
+# Stack de pré-production — Frontend Nuxt 4 SSR.
+# Lecture des secrets dans .env.preprod (non commité, à créer depuis
+# .env.preprod.example). Voir docs/DEPLOYMENT.md pour la procédure.
+#
+# Démarrage :
+#   docker compose -f docker-compose.preprod.yml --env-file .env.preprod up -d
+#
+# Hypothèse : le backend tourne déjà sur l'env preprod, accessible via
+# NUXT_PUBLIC_API_BASE (URL publique ou alias réseau Docker).
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rr-frontend:preprod
+    container_name: rr-web-preprod
+    restart: unless-stopped
+    env_file: .env.preprod
+    ports:
+      - "3000:3000"
+    networks:
+      - rr-preprod
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  rr-preprod:
+    # External : le réseau est créé par le compose backend (rr-preprod-net).
+    # Permet au frontend de joindre l'API via `http://api:3001` si besoin.
+    name: rr-preprod-net
+    external: true

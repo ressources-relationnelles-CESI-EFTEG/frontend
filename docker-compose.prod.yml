@@ -1,0 +1,44 @@
+# Stack de production — Frontend Nuxt 4 SSR.
+# Lecture des secrets dans .env.prod (non commité, à créer depuis
+# .env.prod.example). Voir docs/DEPLOYMENT.md pour la procédure.
+#
+# Démarrage :
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Hypothèses production :
+#   - Un reverse-proxy (nginx/traefik) en amont gère TLS et le routing
+#     vers le port 3000 du conteneur.
+#   - Le backend tourne sur le même hôte (rr-prod-net) ou est exposé via
+#     une URL publique (NUXT_PUBLIC_API_BASE dans .env.prod).
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rr-frontend:prod
+    container_name: rr-web-prod
+    restart: always
+    env_file: .env.prod
+    ports:
+      # Exposition locale uniquement — le reverse-proxy s'occupe du public
+      - "127.0.0.1:3000:3000"
+    networks:
+      - rr-prod
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  rr-prod:
+    # External : le réseau est créé par le compose backend (rr-prod-net).
+    name: rr-prod-net
+    external: true
