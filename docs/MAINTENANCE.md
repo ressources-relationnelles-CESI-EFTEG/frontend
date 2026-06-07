@@ -6,7 +6,7 @@
 
 Le suivi opérationnel s'appuie sur **deux outils complémentaires** :
 
-- **GitHub Issues + Projects** — catalogue technique des fonctionnalités, anomalies et tâches techniques. Chaque issue est liée nativement aux commits, branches et pull requests (closing keywords, mentions, références croisées) : la traçabilité code ↔ ticket est automatique. Les templates structurés (`.github/ISSUE_TEMPLATE/bug_report.md`, `feature_request.md`, `config.yml`) garantissent que chaque demande contient les informations nécessaires à son traitement.
+- **GitHub Issues** — catalogue technique des fonctionnalités, anomalies et tâches techniques. Chaque issue est liée nativement aux commits, branches et pull requests (closing keywords, mentions, références croisées) : la traçabilité code ↔ ticket est automatique. Les templates structurés (`.github/ISSUE_TEMPLATE/bug_report.md`, `feature_request.md`, `config.yml`) garantissent que chaque demande contient les informations nécessaires à son traitement. Les **GitHub Milestones** sont utilisées pour le suivi par release.
 - **Trello** — pilotage opérationnel quotidien : visualisation kanban, priorisation visuelle, planification de sprint, répartition des assignations dans l'équipe. Les cartes Trello en cours référencent les issues GitHub correspondantes.
 
 Cette articulation découpe les responsabilités : GitHub Issues = **source de vérité technique** (lié au code), Trello = **vue de pilotage** (lié à l'équipe).
@@ -33,7 +33,11 @@ Dépôt GitHub : https://github.com/ressources-relationnelles-CESI-EFTEG/fronten
 | `page:moderation` | Concerne l'interface de modération |
 | `page:admin` | Concerne l'interface d'administration |
 
-### Workflow Kanban
+### Workflow Kanban (Trello)
+
+Le tableau Kanban est hébergé sur **Trello**, en complément du catalogue
+technique GitHub Issues. Les cartes Trello en cours référencent l'issue
+GitHub correspondante.
 
 ```
 Backlog → À faire → En cours → En révision (PR) → Terminé
