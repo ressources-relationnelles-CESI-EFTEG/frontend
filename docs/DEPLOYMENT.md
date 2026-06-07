@@ -78,37 +78,69 @@ NUXT_PUBLIC_API_BASE=http://localhost:3001 node .output/server/index.mjs
 
 ---
 
-## Déploiement Docker
+## Environnements Docker — 2 stacks alignées sur le GitFlow
 
-### Fichiers concernés
+Le repo fournit **deux fichiers Docker Compose** dédiés, un par
+environnement déployé, alignés sur le GitFlow `develop → preprod → main` :
 
-| Fichier | Rôle |
-|---|---|
-| `Dockerfile` | Image multi-stage node:20-alpine (build + runtime) |
-| `docker-compose.prod.yml` | Orchestration du service `web` en production |
-| `.env.production` | Variables d'environnement pour Docker |
+| Fichier | Environnement | Branche source | Contenu |
+|---|---|---|---|
+| (aucun) | **dev** (local) | `develop` (working tree) | Pas de compose : Nuxt tourne via `npm run dev` avec hot-reload. |
+| `docker-compose.preprod.yml` | **pré-production** | `preprod` | Service `web` Nuxt SSR sur le port 3000, sur le réseau externe `rr-preprod-net` (créé par le compose backend). Lecture des secrets depuis `.env.preprod`. |
+| `docker-compose.prod.yml` | **production** | `main` | Service `web` Nuxt SSR avec hardening (exposition `127.0.0.1:3000` uniquement, `restart: always`, log rotation), sur le réseau externe `rr-prod-net`. Lecture des secrets depuis `.env.prod`. |
 
-### Procédure
+Le `Dockerfile` à la racine est un **multi-stage** (builder + runtime) :
+- **Builder** : `node:20-alpine`, `npm ci`, `nuxt build` (Nitro génère
+  `.output/server/index.mjs` autonome avec ses dépendances bundlées).
+- **Runtime** : `node:20-alpine` + `dumb-init`, utilisateur non-root `node`,
+  healthcheck interne sur la racine. **Pas de `node_modules` à copier** :
+  Nitro produit un bundle complet.
+
+> Le frontend rejoint le backend via le **réseau externe** créé par le
+> compose backend (`rr-preprod-net` ou `rr-prod-net`). Démarrer le compose
+> backend d'abord.
+
+### Démarrage dev (local, hot reload)
 
 ```bash
-# 1. Créer le réseau Docker partagé (si ce n'est pas déjà fait)
-docker network create rr-net
-
-# 2. S'assurer que le backend est démarré sur ce même réseau
-
-# 3. Se placer dans le répertoire frontend
 cd frontend
+cp .env.example .env
+# Éditer .env (NUXT_PUBLIC_API_BASE=http://localhost:3001)
 
-# 4. Copier et configurer le fichier d'environnement de production
-cp .env.example .env.production
-# Éditer .env.production :
-#   NUXT_PUBLIC_API_BASE=http://api:3001
-
-# 5. Construire et démarrer le conteneur
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+npm install
+npm run dev
+# → http://localhost:3000
 ```
 
-Le conteneur `web` écoute sur le port **3000**. Pour l'exposer en HTTPS, placer un reverse-proxy (Nginx, Traefik, Caddy) devant lui.
+### Démarrage pré-production
+
+```bash
+# Prérequis : le compose backend preprod doit déjà tourner
+# (il crée le réseau rr-preprod-net que le frontend rejoindra)
+
+cd frontend
+cp .env.preprod.example .env.preprod
+# Éditer .env.preprod (NUXT_PUBLIC_API_BASE = URL publique de l'API preprod)
+
+docker compose -f docker-compose.preprod.yml --env-file .env.preprod up -d --build
+# → http://<hôte>:3000
+```
+
+### Démarrage production
+
+```bash
+# Prérequis : le compose backend prod doit déjà tourner
+
+cd frontend
+cp .env.prod.example .env.prod
+# Éditer .env.prod (NUXT_PUBLIC_API_BASE = URL publique de l'API prod, TLS obligatoire)
+
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
+En production, le conteneur `web` écoute uniquement sur `127.0.0.1:3000` —
+un reverse-proxy (nginx, traefik, caddy) en amont termine TLS et route
+le trafic public.
 
 ### Comptes de démonstration
 
@@ -261,7 +293,7 @@ npm install
 npm run build
 
 # 5. Redémarrer le conteneur Docker
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 
 # 6. Retour à main après stabilisation
 git checkout main

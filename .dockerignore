@@ -1,0 +1,40 @@
+# Dépendances et builds locaux — réinstallés / régénérés à chaque build
+node_modules
+.nuxt
+.output
+dist
+
+# Variables d'environnement locales — JAMAIS dans l'image
+.env
+.env.*
+!.env.example
+!.env.preprod.example
+!.env.prod.example
+
+# Git et CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Éditeurs et IDE
+.vscode
+.idea
+.fleet
+*.swp
+*.swo
+
+# Tests, rapports et documentation (pas nécessaires à l'exécution)
+docs
+test-results
+playwright-report
+tests
+*.md
+!README.md
+
+# Logs
+logs
+*.log
+
+# Source maps DSFR (volumineuses, non utiles à l'exécution server)
+public/dsfr/**/*.map
