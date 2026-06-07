@@ -293,7 +293,7 @@ npm install
 npm run build
 
 # 5. Redémarrer le conteneur Docker
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 
 # 6. Retour à main après stabilisation
 git checkout main
