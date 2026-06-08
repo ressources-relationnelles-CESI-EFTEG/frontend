@@ -4,7 +4,7 @@
 # Stage 1 — Builder
 # Compile l'application Nuxt 4 en mode SSR (Nitro server output).
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ RUN npx nuxt build
 # Stage 2 — Runtime
 # Image minimale qui sert l'application en SSR via Nitro.
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS runtime
+FROM node:26-alpine AS runtime
 
 ENV NODE_ENV=production
 
