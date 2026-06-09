@@ -27,7 +27,7 @@ Le frontend échange un **token JWT** avec le backend pour authentifier les requ
 - Le token est transmis dans l'en-tête HTTP `Authorization: Bearer <token>` à chaque appel API.
 - Stockage recommandé : cookie `httpOnly` (inaccessible au JavaScript, protège contre le vol par XSS) ou `localStorage` avec vigilance renforcée contre XSS.
 - Les pages protégées (ressources, messagerie, tableau de bord, administration, modération) vérifient la présence et la validité du token via les middlewares Nuxt avant le rendu.
-- Les tokens ont une durée de vie limitée (expiration 1 h). Le renouvellement automatique (refresh token) est prévu en roadmap V1.1 côté composable `useAuth`.
+- Les tokens ont une durée de vie limitée (expiration 1 h). Le renouvellement automatique (refresh token) est prévu en roadmap V1.2.0 côté composable `useAuth`.
 - À la déconnexion, le token est supprimé du stockage et ne doit pas être réutilisé.
 
 ---
@@ -135,7 +135,7 @@ Le conteneur lui-même n'a pas à gérer TLS.
 | Risque | Statut | Mesures appliquées |
 |---|---|---|
 | **A01:2021 — Injection** | Atténué | Validation backend systématique, pas de `v-html` avec données externes, échappement Vue automatique |
-| **A02:2021 — Broken Authentication** | Atténué | JWT + expiration 1 h, middleware auth sur routes protégées (refresh token en roadmap V1.1) |
+| **A02:2021 — Broken Authentication** | Atténué | JWT + expiration 1 h, middleware auth sur routes protégées (refresh token en roadmap V1.2.0) |
 | **A03:2021 — Broken Access Control** | Atténué | Middlewares Nuxt (auth, moderateur, admin, super-admin) bloquent l'accès par rôle |
 | **A04:2021 — Insecure Design** | Géré | Authentification par token Bearer (CSRF-proof), HTTPS enforced en prod |
 | **A05:2021 — Security Misconfiguration** | Géré | Variables d'env séparées par environnement, pas de secrets en bundle public |
