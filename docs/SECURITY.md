@@ -149,18 +149,22 @@ Le conteneur lui-même n'a pas à gérer TLS.
 
 ## 10. Matrice des risques — Probabilité × Impact
 
-| Risque | Probabilité | Impact | Sévérité | Mitigation |
-|---|---|---|---|---|
-| **Fuite de token JWT** | Moyenne | Critique | 🔴 Haute | Stockage en mémoire JS (non persistant entre rechargements), expiration 1 h, rotation `AUTH_TOKEN_SECRET` |
-| **XSS reflété via URL** | Moyenne | Majeur | 🟠 Moyen-Haute | Échappement Vue auto, validation backend, CSP stricte |
-| **XSS stocké (commentaires/ressources)** | Basse | Majeur | 🟠 Moyen-Haute | Échappement auto Vue, pas de `v-html`, sanitisation backend |
-| **CSRF** | Très basse | Majeur | 🟡 Moyen | Authentification Bearer token (naturellement CSRF-proof) |
-| **Clickjacking** | Basse | Mineur | 🟡 Moyen | CSP frame-ancestors, X-Frame-Options header |
-| **Dépendance npm vulnérable** | Moyenne | Variable | 🟠 Moyen-Haute | `npm audit` hebdo, Dependabot activé, mise à jour régulière |
-| **Fuite d'info via console** | Basse | Majeur | 🟠 Moyen-Haute | Pas de log de token, pas d'info sensible, review code |
-| **Indisponibilité (backend down)** | Basse | Majeur | 🟠 Moyen-Haute | UptimeRobot, health check Docker, alertes email |
-| **Accessibilité dégradée** | Basse | Mineur | 🟡 Moyen | Tests WCAG réguliers, composants DSFR seuls, Lighthouse CI |
-| **Vol de session (logout partiel)** | Très basse | Majeur | 🟠 Moyen-Haute | Déconnexion complète (token + state), SameSite cookie |
+Échelle : Probabilité et Impact notés de 1 à 5. Criticité = Probabilité × Impact. Bandes : 1–5 Faible · 6–9 Moyen · 10–15 Élevé · 16–25 Critique.
+
+| Risque | Probabilité | Impact | Criticité | Mitigation |
+|---|:---:|:---:|:---:|---|
+| **Fuite de token JWT** | 3 | 5 | 15 — Élevé | Stockage en mémoire JS (non persistant entre rechargements), expiration 1 h, rotation `AUTH_TOKEN_SECRET` |
+| **XSS reflété via URL** | 4 | 3 | 12 — Élevé | Échappement Vue auto, validation backend, CSP stricte |
+| **XSS stocké (commentaires/ressources)** | 4 | 3 | 12 — Élevé | Échappement auto Vue, pas de `v-html`, sanitisation backend |
+| **CSRF** | 2 | 3 | 6 — Moyen | Authentification Bearer token (naturellement CSRF-proof) |
+| **Clickjacking** | 2 | 2 | 4 — Faible | CSP frame-ancestors, X-Frame-Options header |
+| **Dépendance npm vulnérable** | 3 | 3 | 9 — Moyen | `npm audit` hebdo, Dependabot activé, mise à jour régulière |
+| **Fuite d'info via console** | 2 | 4 | 8 — Moyen | Pas de log de token, pas d'info sensible, review code |
+| **Indisponibilité (backend down)** | 2 | 4 | 8 — Moyen | UptimeRobot, health check Docker, alertes email |
+| **Accessibilité dégradée** | 2 | 2 | 4 — Faible | Tests WCAG réguliers, composants DSFR seuls, Lighthouse CI |
+| **Vol de session (logout partiel)** | 1 | 4 | 4 — Faible | Déconnexion complète (token + state), SameSite cookie |
+
+> Les risques de criticité ≥ 10 (Élevé et Critique) sont traités en priorité et réévalués lors de la revue de sécurité annuelle (voir `MAINTENANCE.md`).
 
 ---
 
